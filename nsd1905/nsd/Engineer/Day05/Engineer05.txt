@@ -1,0 +1,410 @@
+防火墙设置:
+虚拟机server
+]# firewall-cmd --set-default-zone=trusted 
+
+虚拟机desktop
+]# firewall-cmd --set-default-zone=trusted 
+
+#####################################################
+网页内容访问
+
+文件夹权限
+• 针对 DocumentRoot 网页目录的权限控制
+– httpd 运行身份(用户/组):apache
+
+客户机地址限制
+• 使用 <Directory> 配置区段
+– 每个文件夹自动继承其父目录的ACL访问权限
+– 除非针对子目录有明确设置
+
+<Directory 目录的绝对路径>
+.. ..
+Require all denied|granted
+Require ip IP或网段地址 .. ..
+</Directory>
+
+
+<Directory />
+    Require all denied   #拒绝所有
+</Directory>
+
+<Directory "/var/www">
+    Require all granted   #允许所有
+</Directory>
+
+案例1:配置网页内容访问
+在 Web 网站 http://server0.example.com 的
+DocumentRoot 目录下创建一个名为 private 的子目录,要求如下:
+1.查看server0.example.com的DocumentRoot路径
+]# cat /etc/httpd/conf.d/nsd01.conf
+]# cd /var/www/abc01/
+]# mkdir private
+]# ls
+]# echo '<h1>wo shi private' > private/index.html
+
+2.测试访问:
+虚拟机server
+]# firefox server0.example.com/private   #可以访问
+虚拟机desktop
+]# firefox server0.example.com/private   #可以访问
+
+3)从虚拟机server0上,任何人都可以浏览 private 的内容    
+但是从其他系统不能访问这个目录的内容
+[root@server0 /]# vim /etc/httpd/conf/httpd.conf 
+[root@server0 /]# vim /etc/httpd/conf.d/nsd02.conf
+<Directory "/var/www/abc01/private">
+    Require ip 172.25.0.11     #仅允许172.25.0.11访问
+</Directory>
+[root@server0 /]# systemctl restart httpd
+
+虚拟机desktop0:访问权限不足被拒绝
+[root@desktop0 /]# firefox server0.example.com/private
+Forbidden
+You don't have permission to access /private/ on this server.
+
+####################################################
+SELinux策略保护
+案例2:使用自定Web根目录
+调整 Web 站点 http://server0.example.com 的网页目录,要求如下:
+1)新建目录 /webroot,作为此站点新的网页目录
+]# mkdir /webroot
+]# echo '<h1>wo shi webroot' > /webroot/index.html
+]# vim /etc/httpd/conf.d/nsd01.conf 
+ <VirtualHost *:80>
+  ServerName server0.example.com
+  DocumentRoot /webroot
+ </VirtualHost>
+2)修改配置文件设置添加访问控制
+[root@server0 /]# vim /etc/httpd/conf.d/nsd02.conf 
+ <Directory "/webroot">
+    Require all granted
+ </Directory>
+
+3)SELinux三大策略:布尔值   安全上下文    非默认端口开放 
+
+    安全上下文:为所有重点的数据打上标签
+[root@server0 /]# setenforce 1
+[root@server0 /]# getenforce 
+
+[root@server0 /]# ls -Zd  /webroot/  #查看目录的上下文值
+[root@server0 /]# ls -Zd  /var/www/   #查看目录的上下文值
+• 方式1:参照标准目录,重设新目录的属性
+– chcon [-R] --reference=模板目录    新目录
+
+]# chcon -R --reference=/var/www/    /webroot/
+]# ls -Zd /webroot/
+
+###################################################
+部署动态网站
+静态网站的运行
+• 服务端的原始网页 = 浏览器访问到的网页
+– 由Web服务软件处理所有请求
+– 文本(txt/html)、图片(jpg/png)等静态资源
+
+动态网站的运行
+• 服务端的原始网页 ≠ 浏览器访问到的网页
+– 由Web服务软件接受请求,动态程序转后端模块处理
+– PHP网页、Python网页、JSP网页......
+
+1.为站点webapp0.example.com配置提供动态Web
+]# cat /etc/httpd/conf.d/nsd01.conf  #查看网页存放路径
+
+]# cd /var/www/abc03/
+]# wget http://classroom.example.com/pub/materials/webinfo.wsgi
+ 
+2.页面跳转(页面别名  地址重写):用户方便通过域名访问
+
+  DocumentRoot:网页文件根目录
+
+ Alias  网络路径     实际路径
+  当用户浏览器为'网络路径',将'实际路径'文件呈现
+ webapp0.example.com =  / (网页文件根目录)   
+
+[root@server0 /]# vim /etc/httpd/conf.d/nsd01.conf 
+<VirtualHost *:80>
+  ServerName webapp0.example.com
+  DocumentRoot /var/www/abc03
+  Alias    /       /var/www/abc03/webinfo.wsgi
+   #当用户通过网络,访问为网页文件根目录,将webinfo.wsgi文件呈现
+</VirtualHost>
+[root@server0 /]# systemctl restart httpd
+[root@server0 /]# firefox webapp0.example.com
+
+3.将Python页面代码进行翻译
+]# yum -y install mod_wsgi   #进行翻译Python页面代码软件
+]# vim /etc/httpd/conf.d/nsd01.conf 
+<VirtualHost *:80>
+  ServerName webapp0.example.com
+  DocumentRoot /var/www/abc03
+  WsgiScriptAlias    /       /var/www/abc03/webinfo.wsgi
+</VirtualHost>
+[root@server0 /]# systemctl restart httpd
+
+[root@server0 /]# firefox webapp0.example.com
+
+页面内容为:
+  Unix时间戳:从1970-1-1 0:0:0到现在时间,所经历的秒数
+
+4.此虚拟Web主机侦听在端口8909
+[root@server0 /]# vim /etc/httpd/conf.d/nsd01.conf
+Listen 8909           #设置httpd程序监听8909
+<VirtualHost  *:8909>  #设置虚拟Web主机监听8909
+  ServerName webapp0.example.com
+  DocumentRoot /var/www/abc03
+  WsgiScriptAlias    /       /var/www/abc03/webinfo.wsgi
+</VirtualHost>
+5.SELinux非默认端口开放 ,需要足够的内存
+]# semanage port -l | grep http
+]# semanage port -a  -t  http_port_t  -p tcp 8909
+    -a:添加       -t:类型     -p:协议
+]# systemctl restart httpd
+]# firefox webapp0.example.com:8909
+###################################################
+ httpd程序:
+    端口匹配为最高优先级,其次是虚拟Web主机,由上及下的匹配
+###################################################
+安全Web服务
+
+PKI公钥基础设施
+• Public Key Infrastructure,公钥基础设施
+– 公钥:主要用来加密数据
+– 私钥:主要用来解密数据(与相应的公钥匹配)
+– 数字证书:证明拥有者的合法性/权威性(单位名称、有效期、公钥、颁发机构及签名、......)
+– Certificate Authority,数字证书授权中心:负责证书
+的申请/审核/颁发/鉴定/撤销等管理工作
+
+虚拟机server:
+1.部署网站证书(营业执照)
+]# cd /etc/pki/tls/certs/
+]# wget http://classroom.example.com/pub/tls/certs/server0.crt
+
+]# ls
+
+2.部署根证书(工商局信息)
+]# cd /etc/pki/tls/certs/
+]# wget  http://classroom.example.com/pub/example-ca.crt
+
+]# ls
+
+3.部署解密私钥
+]# cd /etc/pki/tls/private/
+]# wget http://classroom.example.com/pub/tls/private/server0.key
+
+]# ls
+
+4.安装mod_ssl软件支持加密通信
+[root@server0 /]# yum -y install mod_ssl
+[root@server0 /]# ls /etc/httpd/conf.d/
+
+5.修改配置文件
+[root@server0 /]# vim  /etc/httpd/conf.d/ssl.conf  
+  补充: 末行模式     :set  nu    #开启行号           
+ 59 DocumentRoot  "/var/www/html"
+ 60 ServerName  www0.example.com:443
+指定网站证书
+100 SSLCertificateFile /etc/pki/tls/certs/server0.crt
+指定私钥文件
+107 SSLCertificateKeyFile /etc/pki/tls/private/server0.key
+指定根证书
+122 SSLCACertificateFile /etc/pki/tls/certs/example-ca.crt
+[root@server0 /]# systemctl restart httpd
+[root@server0 /]# firefox  https://www0.example.com
+   我已充分了解可能的风险--->添加例外--->确认安全例外
+####################################################
+补充共享服务:Samba服务,Windows与Linux跨平台的共享
+
+虚拟机server:
+1.安装samba软件
+[root@server0 /]# yum -y install samba
+[root@server0 /]# rpm -q samba
+
+2.专门用于Samba服务验证的用户称之为:samba共享账户
+   专门用于Samba服务验证的用户密码称之为:samba密码
+  samba采用独立的密码与系统密码可以相同,也可以不同
+[root@server0 /]# useradd harry
+[root@server0 /]# pdbedit -a harry
+new password:
+retype new password:
+
+3. 修改配置文件 
+  共享名:客户端通过网络看到的名字,可以与文件夹名相同,也可以不同
+[root@server0 /]# mkdir /nsd1905
+[root@server0 /]# echo abc > /nsd1905/1.txt
+
+[root@server0 /]# vim /etc/samba/smb.conf 
+vim命令模式 按G(大写) 到全文的末行
+
+ [dc]             #设置共享名
+ path = /nsd1905  #实际共享的路径
+
+4.重启smb服务
+[root@server0 /]# systemctl restart smb
+[root@server0 /]# systemctl enable smb
+ln -s '/usr/lib/systemd/system/smb.service' '/etc/systemd/system/multi-user.target.wants/smb.service'
+
+5.SELinux布尔值(功能的开关)
+]# getsebool -a  |  grep  samba       #查看布尔值
+]# setsebool samba_export_all_ro=on   #修改功能的开关
+]# getsebool -a | grep samba
+
+客户端:虚拟机desktop
+1.安装cifs-utils软件,支持cifs文件系统
+[root@desktop0 /]# yum -y install cifs-utils
+
+2.挂载访问                                                       
+nfs共享格式:  
+mount     172.25.0.11:共享路径    挂载点
+samba共享格式:  
+mount -o user=harry,pass=123  //172.25.0.11/共享名    挂载点
+
+]# mount -o user=harry,pass=123  //172.25.0.11/dc   /mnt
+]# df -h
+]# ls /mnt/
+
+3.开机自动挂载
+[root@desktop0 /]# vim /etc/fstab 
+  //172.25.0.11/dc  /mnt  cifs  
+  defaults,_netdev,user=harry,pass=123  0  0
+
+[root@desktop0 /]# umount /mnt
+[root@desktop0 /]# df -h
+
+[root@desktop0 /]# mount -a
+[root@desktop0 /]# df -h
+
+##################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,347 @@
+防火墙设置:
+虚拟机server
+]# firewall-cmd --set-default-zone=trusted 
+
+虚拟机desktop
+]# firewall-cmd --set-default-zone=trusted 
+
+#####################################################
+iSCSI网络磁盘
+
+• Internet SCSI,网际SCSI接口  默认端口  3260
+– 一种基于C/S架构的虚拟磁盘技术
+– 服务器提供磁盘空间,客户机连接并当成本地磁盘使用
+
+• backstore,后端存储(/dev/vdb1)
+– 对应到服务端提供实际存储空间的设备,需要起一个管理名称
+
+• target,磁盘组(木质的箱子)
+– 是客户端的访问目标,作为一个框架,由多个lun组成
+
+• lun,逻辑单元(将冰箱放入木质箱子过程)
+– 每一个lun需要关联到某一个后端存储设备,在客户端会视为一块虚拟硬盘
+
+            冰箱----->纸质的包装       木质箱子
+
+• ISCSI Qualified Name(iqn) 名称规范
+– iqn.yyyy-mm.倒序域名:自定义标识
+– 用来识别 target磁盘组,也用来识别客户机身份
+
+服务端:虚拟机Server:
+一  划分新分区,一个5G主分区
+[root@server0 ~]# fdisk  /dev/vdb
+[root@server0 ~]# lsblk 
+
+二 安装targetcli软件
+[root@server0 ~]# yum -y install targetcli
+
+三 运行targetcli命令进行配置
+[root@server0 ~]# targetcli
+/> ls
+1.生成及指定后端存储(backstore,后端存储)
+/> backstores/block  create  name=nsd  dev=/dev/vdb1
+Created block storage object nsd using /dev/vdb1.
+
+/> ls
+
+2.生成target磁盘组(木质的箱子)
+/> iscsi/ create  iqn.2019-06.example.com:server
+
+/> ls      
+
+3.进行lun关联
+/> iscsi/iqn.2019-06.example.com:server/tpg1/luns      create  /backstores/block/nsd 
+
+/> ls
+
+4.设置ACL验证,设置客户端声称的名字,符合iqn名称规范
+/> iscsi/iqn.2019-06.example.com:server/tpg1/acls      create  iqn.2019-06.example.com:abc 
+
+/> ls
+
+5. 指定本机提供服务的IP地址及端口(默认为3260)
+/> iscsi/iqn.2019-06.example.com:server/tpg1/portals  create ip_address=172.25.0.11
+
+/> ls
+/> exit    #自动保存所有配置                
+
+四  重启服务
+[root@server0 ~]# systemctl restart target  
+[root@server0 ~]# systemctl enable target   #开机自启动
+ln -s '/usr/lib/systemd/system/target.service' '/etc/systemd/system/multi-user.target.wants/target.service'
+[root@server0 ~]# 
+
+####################################################
+客户端:虚拟机desktop
+一  安装软件所需软件包:iscsi-initiator-utils
+   Yum仓库可以进行补全包名:
+            1.该软件当前系统没有安装
+       2.Yum必须具备缓存,利用yum  repolist指令进行生成缓存
+
+[root@desktop0 ~]# rpm -q iscsi-initiator-utils 
+[root@desktop0 ~]# yum  repolist
+[root@desktop0 ~]# yum  install  iscsi(tab)  #练习补全
+
+二 设置客户端声称的名字
+[root@desktop0 ~]# vim /etc/iscsi/initiatorname.iscsi
+InitiatorName=iqn.2019-06.example.com:abc
+
+三 客户端刷新声称名字的服务
+[root@desktop0 ~]# systemctl restart iscsid
+  Warning: Unit file of iscsid.service changed on  
+  disk, 'systemctl daemon-reload' recommended.
+[root@desktop0 ~]# systemctl daemon-reload
+[root@desktop0 ~]# systemctl restart iscsid
+
+四  发现共享存储
+  Linux查看命令帮助的方法 :  man  iscsiadm 
+   全文查找/example   按n项下跳转匹配,看到EXAMPLES
+
+   Ctrl    - ：减小字体
+   Ctrl   Shift   + ：变大字体   
+
+[root@desktop0 ~]# iscsiadm --mode discoverydb --type sendtargets --portal 172.25.0.11 --discover
+
+172.25.0.11:3260,1 iqn.2019-06.example.com:server
+
+五  加载使用共享存储
+[root@desktop0 ~]# lsblk 
+[root@desktop0 ~]# systemctl restart iscsi
+[root@desktop0 ~]# lsblk 
+[root@desktop0 ~]# systemctl enable iscsi
+
+###################################################
+总结:
+服务端:
+1.防火墙修改默认区域为trusted
+2.规划分区,划分共享的分区
+3.安装targetcli软件包
+4.运行targetcli命令进行配置
+    1)建立后端存储
+    2)建立target磁盘组
+    3)进行lun关联
+    4)设置客户端声称的名字
+    5)设置提供服务的IP地址及端口
+5.重启target服务
+
+客户端:
+1.防火墙修改默认区域为trusted
+2.安装iscsi-initiator-utils软件包
+3.修改配置文件/etc/iscsi/initiatorname.iscsi
+4.重启iscsid刷新客户端标识的名字
+5.执行iscsiadm命令发现共享存储
+]# iscsiadm --mode discoverydb --type sendtargets --portal 172.25.0.11 --discover
+
+6.重启iscsi进行加载共享存储
+###################################################
+
+数据库服务基础
+
+   什么是数据库:存放数据的仓库
+
+   在数据库中有很多的库,每一个库中有很多的表格
+
+• 常见的关系型 数据库管理系统
+  – 微软的 SQL Server
+ – IBM的 DB2
+  – 甲骨文的 Oracle、MySQL
+  – 社区开源版 MariaDB
+
+
+虚拟机Server0:部署数据库                    
+1.安装mariadb-server软件包
+[root@server0 ~]# yum -y install mariadb-server
+
+2.重启mariadb服务
+[root@server0 ~]# systemctl restart mariadb
+[root@server0 ~]# systemctl enable mariadb
+ln -s '/usr/lib/systemd/system/mariadb.service' '/etc/systemd/system/multi-user.target.wants/mariadb.service'
+[root@server0 ~]# 
+
+   database:数据库
+
+#####################################################
+数据库基本操作:
+[root@server0 ~]# mysql     #进入数据库
+MariaDB [(none)]> show  databases;        #显示所有库
+
+MariaDB [(none)]> create  database  nsd;  #创建nsd库
+MariaDB [(none)]> show  databases;
+
+MariaDB [(none)]> drop  database  nsd;    #删除nsd库
+MariaDB [(none)]> show  databases;
+
+MariaDB [(none)]> create  database  nsd1905;
+MariaDB [(none)]> show  databases;
+
+MariaDB [(none)]> use mysql;  #进入mysql库
+Database changed
+MariaDB [mysql]> show tables;   #显示当前库中所有表格
+
+MariaDB [mysql]> use nsd1905;   #进入nsd1905库
+Database changed
+MariaDB [nsd1905]> show tables;
+Empty set (0.00 sec)
+MariaDB [nsd1905]> exit            #退出数据库回到命令行
+###################################################
+设置数据库管理员密码
+
+数据库管理员:用户名为root,数据库有最高权限,用户信息mysql库user表
+系统管理员:用户名为root,对系统有最高权限,用户信息/etc/passwd
+
+zhangsan能够进入MariaDB是否需要创建本地用户zhangsan  不需要
+
+– mysqladmin [-u用户名] [-p[旧密码]] password '新密码'
+
+]# mysqladmin -u root password '456'   #设置密码456
+
+]# mysql -u root -p      #交互式进入数据库
+Enter password: 
+
+]# mysql -u root -p456   #非交互式进入数据库
+
+]# mysqladmin -u root -p456  password  '123'  #修改密码
+]# mysql -u root -p123
+
+###################################################
+数据库MariaDB数据库主配置文件/etc/my.cnf
+####################################################
+
+• 导入/恢复到数据库
+– mysql [-u用户名] [-p[密码]] 数据库名 < 备份文件.sql
+[root@server0 ~]# wget http://classroom.example.com/pub/materials/users.sql
+[root@server0 ~]# ls
+
+]# mysql -u root -p123 nsd1905 < /root/users.sql 
+
+]# mysql -u root -p123
+MariaDB [(none)]> use nsd1905;
+MariaDB [nsd1905]> show tables;
++-------------------+
+| Tables_in_nsd1905 |
++-------------------+
+| base              |
+| location          |                  
++-------------------+
+##################################################
+表格:  表记录   表字段                                                 
+  
+           编号       姓名       联系方式          居住地址
+        1      dc    138.....     东村
+        2      tc    138.....     西村
+
+   增(insert)     删(delete)      改(update)        查(select)
+
+查询格式: select  表字段   from  库名.表名;
+[root@server0 ~]# mysql -u root -p123
+MariaDB [(none)]> use nsd1905;
+MariaDB [nsd1905]> show tables;
+
+MariaDB [nsd1905]> select * from base;
+MariaDB [nsd1905]> select name,password from base;
+
+MariaDB [nsd1905]> select name from base;
+MariaDB [nsd1905]> select id,name from base;
+
+MariaDB [nsd1905]> select * from location;
+
+查询表结构:  desc  表名
+
+MariaDB [nsd1905]> desc base;
+
+MariaDB [nsd1905]> use mysql;
+MariaDB [mysql]> desc  user;
+MariaDB [mysql]> select  user,host,password  from user;
+
+有条件的查询:
+> use nsd1905;
+> select * from base;
+
+> select * from base where password='456';
+
+> select * from base where password='123';
+
+> select * from base where name='tom';
+
+> select * from base where password='tarena';
+
+数据库的授权:
+除了root用户,此nsd1905数据库只能被用户lisi查询,此用户的密码为123
+
+– GRANT 权限列表 ON 数据库名.表名 TO 用户名@
+客户机地址 IDENTIFIED BY '密码';
+
+  grant  select on  nsd1905.*  to lisi@localhost 
+  identified by  '123';
+
+  当lisi从localhost本地登录输入密码123,将会获得nsd1905库中所有表的查询权限
+
+> grant  select  on  nsd1905.*  to  lisi@localhost 
+  identified  by  '123';
+
+> select user,host,password from mysql.user;
+
+####################################################
+案例4:使用数据库查询
+2. 在系统 server0 上使用数据库 nsd1905,并使用相
+应的 SQL 查询以回答下列问题:
+1)密码是 solicitous 的人的名字?
+> use nsd1905;
+> select * from base where password='solicitous';
+
+2)有多少人的姓名是 Barbara 同时居住在 Sunnyvale?
+> select * from base,location  
+  where base.name='Barbara' and 
+  location.city='Sunnyvale' and  base.id=location.id;
+
+> select count(*) from base,location  
+  where base.name='Barbara' and 
+  location.city='Sunnyvale' and  base.id=location.id;
+
+> insert base values('6','Barbara','789');  #插入表记录
+> select * from base;
+
+> insert location values('6','Sunnyvale');  #插入表记录
+> select * from location;
+
+
+1. 禁止空密码root用户访问 mariadb 数据库
+> use mysql;
+> select user,host,password from user;
+
+> select user,host,password from user  where password='';
+
+> delete from user where password='';   #删除表中记录
+
+> select user,host,password from user;
+
+> flush privileges;  #刷新user表记录
+
+测试验证登录失败:
+[root@server0 ~]# mysql -u root -h server0.example.com
+####################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

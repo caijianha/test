@@ -1,0 +1,36 @@
+案例练习,准备:
+            rht-vmctl  reset  classroom
+            rht-vmctl  reset  server
+	       rht-vmctl  reset  desktop
+######################################################
+
+
+案例1：chmod权限设置
+    1）以root用户新建/nsddir/目录，在该目录下新建文件readme.txt
+    2）使用户zhangsan能够在/nsddir/目录下创建/删除子目录
+    3）使用户zhangsan能够修改/nsddir/readme.txt文件的容
+  
+ 
+案例2：chown归属设置
+    1）新建/tarena1目录
+	a）将属主设为gelin01，属组设为tarena组
+	b）使用户gelin01对此目录具有rwx权限，其他人对此目录无任何权限
+
+    2）使用户gelin02能进入、查看/tarena1文件夹（提示：将gelin02加入所属组）
+
+    3）新建/tarena2目录
+	a）将属组设为tarena
+	b）使tarena组的任何用户都能在此目录下创建、删除文件
+
+    4）新建/tarena/public目录
+	a）使任何用户对此目录都有rwx权限
+	b）拒绝zhangsan进入此目录，对此目录无任何权限（提示：为zhangsan设置ACL策略为:---）
+
+
+案例3:权限设置
+	1、创建文件夹/data/test,设置目录的访问权限，使所有者和所属组具备读写执行的权限；其他人无任何权限。
+	2、递归修改文件夹/data/test的归属使所有者为zhangsan，所属组为tarena。
+	3、请实现在test目录下，新建的所有子文件或目录的所属组都会是tarena。
+	4、为lisi创建ACL访问权限，使得lisi可以查看/etc/shadow文件
+
+

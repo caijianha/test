@@ -1,0 +1,332 @@
+rewrite 旧地址 新地址 [选项]
+last 不在读其他rewrite
+break 不在读其他语句,结束请求
+redirect 临时重定向
+permament 永久重定向
+修改配置文件(访问192.168.4.5/下面子页面，重定向至www.tmooc.cn/下相同的页面)
+rewrite ^/(.*)$  http://www.tmooc.cn/$1;
+
+修改配置文件(实现curl和火狐访问相同链接返回的页面不同)
+server {
+        listen       80;
+        server_name  www.a.com;
+
+#这里，~符号代表正则匹配，*符号代表不区分大小写
+if ($http_user_agent ~* firefox) {            //识别客户端firefox浏览器
+rewrite ^(.*)$  /firefox/$1;
+}
+
+###############################################################################
+Nginx反向代理
+部署后端Web1服务器
+yum  -y  install  httpd
+[root@web1 ~]# echo "192.168.2.100" > /var/www/html/index.html
+[root@web1 ~]# systemctl restart httpd
+[root@web1 ~]# firewall-cmd --set-default-zone=trusted
+[root@web1 ~]# setenforce 0
+部署后端Web2服务器
+
+配置Nginx服务器，添加服务器池，实现反向代理功能
+vim /usr/local/nginx/conf/nginx.conf
+#使用upstream定义后端服务器集群，集群名称任意(如webserver)
+#使用server定义集群中的具体服务器和端口
+upstream webserver {
+                server 192.168.2.100:80;
+                server 192.168.2.200:80;
+        }
+.. ..
+server {
+        listen		80;
+        server_name  localhost;
+            location / {
+#通过proxy_pass将用户的请求转发给webserver集群
+            proxy_pass http://webserver;
+        }
+}
+
+重新加载配置
+客户端使用浏览器访问代理服务器测试轮询效果
+curl http://192.168.4.5			//使用该命令多次访问查看效果
+
+配置upstream服务器集群池属性
+设置失败次数，超时时间，权重
+weight可以设置后台服务器的权重，max_fails可以设置后台服务器的失败次数，fail_timeout可以设置后台服务器的失败超时时间
+ server 192.168.2.100 weight=1 max_fails=1 fail_timeout=30;
+                server 192.168.2.200 weight=2 max_fails=2 fail_timeout=30;
+                server 192.168.2.101 down;
+#weight设置服务器权重值，默认值为1
+#max_fails设置最大失败次数 (类似于ping)
+#fail_timeout设置失败超时时间，单位为秒(失败后过*秒再尝试访问)
+#down标记服务器已关机，不参与集群调度
+关闭一台后端服务器（如web1）
+客户端再次使用浏览器访问代理服务器测试轮询效果
+
+  配置upstream服务器集群的调度算法
+设置相同客户端访问相同Web服务器
+				 ip_hash;
+                server 192.168.2.100 weight=1 max_fails=2 fail_timeout=10;
+                server 192.168.2.200 weight=2 max_fails=2 fail_timeout=10;
+重新加载配置
+客户端使用浏览器访问代理服务器测试轮询效果
+
+###############################################################################
+   Nginx的TCP/UDP调度器
+一：部署支持4层TCP/UDP代理的Nginx服务器
+部署nginx服务器
+ ./configure   \
+> --with-http_ssl_module	        //开启SSL加密功能
+> --with-stream				//开启4层反向代理功能
+
+二：配置Nginx服务器，添加服务器池，实现TCP/UDP反向代理功能
+vim /usr/local/nginx/conf/nginx.conf
+
+stream {
+    		upstream backend {
+           	server 192.168.2.100:22;	//后端SSH服务器的IP和端口
+           	server 192.168.2.200:22;
+}
+   		 server {
+       		 listen 12345;			//Nginx监听的端口
+       		 proxy_connect_timeout 1s;        //连接的超时时间，可选配置
+       		 proxy_timeout 3s;
+        		 proxy_pass backend;
+			 }
+}
+
+http {
+.. ..
+}
+
+重新加载配置
+客户端使用访问代理服务器测试轮询效果
+ ssh 192.168.4.5 -p 12345			//使用该命令多次访问查看效果
+
+###############################################################################
+Nginx常见问题处理
+
+解决如下问题，以提升服务器的处理性能：
+
+如何自定义返回给客户端的404错误页面
+如何查看服务器状态信息
+如果客户端访问服务器提示“Too many open files”如何解决
+如何解决客户端访问头部信息过长的问题
+如何让客户端浏览器缓存数据
+日志切割
+开启gzip压缩功能，提高数据传输效率
+开启文件缓存功能
+然后客户机访问此Web服务器验证效果：
+
+使用ab压力测试软件测试并发量
+编写测试脚本生成长头部信息的访问请求
+客户端访问不存在的页面，测试404错误页面是否重定向
+
+1.自定义报错页面
+ charset utf-8;                    //仅需要中文时需要改选项，可选项
+error_page   404  /404.html;	//自定义错误页面
+
+vim /usr/local/nginx/html/404.html		//生成错误页面
+
+ firefox http://192.168.4.5/xxxxx		//访问一个不存在的页面
+
+常见http状态码
+
+3.如何查看服务器状态信息（非常重要的功能）
+编译安装时使用--with-http_stub_status_module开启状态页面模块
+cd  nginx-1.12.2
+[root@proxy nginx-1.12.2]# ./configure   \
+> --with-http_ssl_module						//开启SSL加密功能
+> --with-stream								//开启TCP/UDP代理模块
+> --with-http_stub_status_module				//开启status状态页面
+[root@proxy nginx-1.12.2]# make && make install	//编译并安装
+
+启用Nginx服务并查看监听端口状态
+ss命令可以查看系统中启动的端口信息，该命令常用选项如下：
+
+-a显示所有端口的信息
+
+-n以数字格式显示端口号
+
+-t显示TCP连接的端口
+
+-u显示UDP连接的端口
+
+-l显示服务正在监听的端口信息，如httpd启动后，会一直监听80端口
+
+-p显示监听端口的服务名称是什么（也就是程序名称）
+
+注意：在RHEL7系统中可以使用ss命令替代netstat命令，功能一样，选项一样。
+
+ netstat  -anptu  |  grep nginx
+ss  -anptu  |  grep nginx
+修改Nginx配置文件，定义状态页面
+
+[root@proxy ~]# cat /usr/local/nginx/conf/nginx.conf
+… …
+location /status {
+                stub_status on;
+				 #allow IP地址;
+				 #deny IP地址;
+        }
+… …
+ curl  http://192.168.4.5/status
+Active connections：当前活动的连接数量。
+
+Accepts：已经接受客户端的连接总数量。
+
+Handled：已经处理客户端的连接总数量。
+
+（一般与accepts一致，除非服务器限制了连接数量）。
+
+Requests：客户端发送的请求数量。
+
+Reading：当前服务器正在读取客户端请求头的数量。
+
+Writing：当前服务器正在写响应信息的数量。
+
+Waiting：当前多少客户端在等待服务器的响应。
+
+三：优化Nginx并发量
+
+优化前使用ab高并发测试
+
+[root@proxy ~]# ab -n 2000 -c 2000 http://192.168.4.5/
+Benchmarking 192.168.4.5 (be patient)
+socket: Too many open files (24)		//提示打开文件数量过多
+
+-n (number:访问量)
+-c (人)
+
+修改Nginx配置文件，增加并发量
+vim /usr/local/nginx/conf/nginx.conf
+.. ..
+worker_processes  2;					//与CPU核心数量一致
+events {
+worker_connections 65535;		//每个worker最大并发连接数
+}
+.. ..
+
+优化Linux内核参数（最大文件数量）
+
+[root@proxy ~]# ulimit -a				//查看所有属性值
+[root@proxy ~]# ulimit -Hn 100000		//设置硬限制（临时规则）
+[root@proxy ~]# ulimit -Sn 100000		//设置软限制（临时规则）
+[root@proxy ~]# vim /etc/security/limits.conf
+	.. ..
+*               soft    nofile            100000
+*               hard    nofile            100000
+
+#该配置文件分4列，分别如下：
+#用户或组    硬限制或软限制    需要限制的项目   限制的值
+
+优化后测试服务器并发量（因为客户端没调内核参数，所以在proxy测试）
+ ab -n 2000 -c 2000 http://192.168.4.5/
+
+四：优化Nginx数据包头缓存
+
+优化前，使用脚本测试长头部请求是否能获得响应
+./buffer.sh 
+<center><h1>414 Request-URI Too Large</h1></center>	//提示头部信息过大
+root@proxy ~]# vim /usr/local/nginx/conf/nginx.conf
+.. ..
+http {
+client_header_buffer_size    1k;	//默认请求包头信息的缓存	
+large_client_header_buffers  4 4k;	//大请求包头部信息的缓存个数与容量
+.. ..
+}
+
+优化后，使用脚本测试长头部请求是否能获得响应
+./buffer.sh
+
+五：浏览器本地缓存静态数据
+
+vim /usr/local/nginx/conf/nginx.conf
+server {
+        listen       80;
+        server_name  localhost;
+        location / {
+            root   html;
+            index  index.html index.htm;
+        }
+location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
+expires		30d;			//定义客户端缓存时间为30天
+}
+}
+
+
+六：日志切割
+ 把旧的日志重命名
+备注：/usr/local/nginx/logs/nginx.pid文件中存放的是nginx的进程PID号。
+
+[root@proxy ~]#  mv access.log access2.log
+[root@proxy ~]# kill -USR1 $(cat /usr/local/nginx/logs/nginx.pid)
+每周5的03点03分自动执行脚本完成日志切割工作。
+[root@proxy ~]# vim /usr/local/nginx/logbak.sh
+#!/bin/bash
+date=`date +%Y%m%d`
+logpath=/usr/local/nginx/logs
+mv $logpath/access.log $logpath/access-$date.log
+mv $logpath/error.log $logpath/error-$date.log
+kill -USR1 $(cat $logpath/nginx.pid)
+
+[root@proxy ~]# crontab -e
+03 03 * * 5  /usr/local/nginx/logbak.sh
+
+七：对页面进行压缩处理
+[root@proxy ~]# cat /usr/local/nginx/conf/nginx.conf
+http {
+.. ..
+gzip on;							//开启压缩
+gzip_min_length 1000;				//小文件不压缩
+gzip_comp_level 4;				//压缩比率
+gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+									//对特定文件压缩，类型参考mime.types
+.. ..
+}
+
+八：服务器内存缓存
+
+1）如果需要处理大量静态文件，可以将文件缓存在内存，下次访问会更快。
+
+http { 
+open_file_cache          max=2000  inactive=20s;
+        open_file_cache_valid    60s;
+        open_file_cache_min_uses 5;
+        open_file_cache_errors   off;
+//设置服务器最大缓存2000个文件句柄，关闭20秒内无请求的文件句柄
+//文件句柄的有效时间是60秒，60秒后过期
+//只有访问次数超过5次会被缓存
+} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

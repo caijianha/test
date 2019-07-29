@@ -1,0 +1,503 @@
+教学环境介绍
+
+• 每个学员机上有三台预先配置好的虚拟机
+– server —— 作为练习用服务器
+– desktop —— 作为练习用客户机
+– classroom —— 提供网关/DNS/软件素材等资源
+
+优先开启classroom虚拟机
+
+真机上,进行还原三台机器:
+[student@room9pc01 ~]$ rht-vmctl reset classroom
+[student@room9pc01 ~]$ rht-vmctl reset server
+[student@room9pc01 ~]$ rht-vmctl reset desktop
+
+#####################################################
+设置权限的黑名单,单独拒绝一个用户
+[root@server0 ~]# mkdir /public
+[root@server0 ~]# chmod ugo=rwx /public
+[root@server0 ~]# ls -ld /public
+[root@server0 ~]# useradd lisi
+[root@server0 ~]# setfacl -m u:lisi:--- /public
+[root@server0 ~]# getfacl /public
+
+[root@server0 ~]# su - lisi
+[lisi@server0 ~]$ cd /public/
+-bash: cd: /public/: Permission denied
+[lisi@server0 ~]$ ls /public/
+ls: cannot open directory /public/: Permission denied
+[lisi@server0 ~]$ exit
+logout
+[root@server0 ~]# 
+####################################################
+请实现 lisi用户,可以查看/etc/shadow文件内容,您有几种办法?
+     1.利用其他人进行设置
+           chmod   o+r  /etc/shadow
+     2.利用所属组进行设置
+           chown  :lisi   /etc/shadow
+           chmod   g+r  /etc/shadow
+     3.利用所有者进行设置
+           chown   lisi   /etc/shadow
+           chmod   u+r  /etc/shadow
+     4.利用ACL进行设置
+           setfacl -m u:lisi:r /etc/shadow
+###################################################
+零散软件管理
+1.虚拟机server具备软件包
+2.虚拟机classroom构建Web服务,让光盘的内容以网页形式提供
+
+   Web服务:提供网页内容       http协议:超文本传输协议
+                        https协议:安全超文本传输协议
+
+3.真机测试访问打开  firefox  classroom.example.com
+
+  classroom.example.com/content/rhel7.0/x86_64/dvd/
+
+下载软件包
+• 使用wget下载工具
+– wget 软件包的URL网址
+– wget 软件包的URL网址    -O(大写)  /目录路径/新文件名
+
+  /content/rhel7.0/x86_64/dvd/Packages  
+ 
+ 在页面中按Ctrl + f 进行当前页面查找:vsftpd  右击"复制链接地址"
+
+[root@server0 ~]# wget  http://classroom.example.com/content/rhel7.0/x86_64/dvd/Packages/vsftpd-3.0.2-9.el7.x86_64.rpm
+
+[root@server0 ~]# ls
+
+
+• RPM Package Manager,RPM包管理器
+– rpm -q 软件名...
+– rpm -ivh 软件名-版本信息.rpm...
+– rpm -e 软件名...
+
+
+[root@server0 ~]# rpm -q vsftpd    #查询软件是否安装
+未安装软件包 vsftpd 
+[root@server0 ~]# rpm -q firefox
+firefox-24.5.0-1.el7.x86_64
+[root@server0 ~]# 
+
+[root@server0 ~]# rpm -ivh /root/vsftpd-3.0.2-9.el7.x86_64.rpm        #安装软件包
+
+[root@server0 ~]# rpm -ql vsftpd  #查询软件的安装清单
+[root@server0 ~]# rpm -q vsftpd
+vsftpd-3.0.2-9.el7.x86_64
+[root@server0 ~]# rpm -e vsftpd    #卸载软件包
+[root@server0 ~]# rpm -q vsftpd   #查询软件包是否卸载成功
+未安装软件包 vsftpd 
+[root@server0 ~]# 
+
+####################################################
+了解:导入红帽签名信息
+[root@server0 ~]# wget http://classroom.example.com/content/rhel7.0/x86_64/dvd/RPM-GPG-KEY-redhat-release
+
+[root@server0 ~]# rpm --import /root/RPM-GPG-KEY-redhat-release
+
+[root@server0 ~]# rpm -q vsftpd
+vsftpd-3.0.2-9.el7.x86_64
+[root@server0 ~]# rpm -e vsftpd
+[root@server0 ~]# rpm -q vsftpd
+未安装软件包 vsftpd 
+[root@server0 ~]# rpm -ivh /root/vsftpd-3.0.2-9.el7.x86_64.rpm 
+
+####################################################
+升级Linux内核
+
+1.下载新的内核软件包
+[root@server0 ~]# wget http://classroom.example.com/content/rhel7.0/x86_64/errata/Packages/kernel-3.10.0-123.1.2.el7.x86_64.rpm
+
+[root@server0 ~]# ls
+[root@server0 ~]# uname -r    #查看内核版本
+3.10.0-123.el7.x86_64
+
+2.查看新的内核软件
+[root@server0 ~]# rpm -ivh /root/kernel-3.10.0-123.1.2.el7.x86_64.rpm   #安装新的内核软件
+
+3.重启虚拟机server
+[root@server0 ~]# reboot
+[student@room9pc01 ~]$ gos
+[root@server0 ~]# uname  -r    #查看内核版本
+3.10.0-123.1.2.el7.x86_64
+[root@server0 ~]# 
+####################################################
+安装软件的提示:
+1.软件包已经安装
+[root@server0 ~]# rpm -ivh /root/vsftpd-3.0.2-9.el7.x86_64.rpm 
+准备中...                                            ################################# [100%]
+	软件包 vsftpd-3.0.2-9.el7.x86_64 已经安装
+
+2.软件包依赖关系错误
+[root@server0 ~]# wget http://classroom.example.com/content/rhel7.0/x86_64/dvd/Packages/bind-chroot-9.9.4-14.el7.x86_64.rpm
+
+[root@server0 ~]# rpm -ivh /root/bind-chroot-9.9.4-14.el7.x86_64.rpm 
+错误：依赖检测失败：
+	bind = 32:9.9.4-14.el7 被 bind-chroot-32:9.9.4-14.el7.x86_64 需要
+
+###################################################
+Yum软件包仓库:自动解决依赖关系
+
+ 服务:可以为客户端自动解决依赖关系,安装软件包
+
+服务端:  1.众多软件包 (Packages)  2.仓库数据文件(repodata)
+         
+      虚拟机classroom:构建Web服务共享光盘所有内容
+      总结:构建Web服务或FTP服务,共享光盘所有内容
+
+客户端:虚拟机server
+  书写一个配置文件:指定服务端位置 
+  /etc/yum.repos.d/*.repo
+   错误的配置文件会影响正确的配置文件                                   
+[root@server0 ~]# rm -rf /etc/yum.repos.d/*
+[root@server0 ~]# ls /etc/yum.repos.d/
+[root@server0 ~]# vim /etc/yum.repos.d/nsd.repo
+[dvd]           #仓库标识 
+name=rhel7.0    #仓库描述信息
+baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd/     #指定服务端位置
+enabled=1       #本文件启用
+gpgcheck=0      #不检测红帽签名信息
+
+Yum的使用
+[root@server0 ~]# yum repolist    #列出仓库信息
+[root@server0 ~]# yum -y install httpd  #安装软件包
+[root@server0 ~]# rpm -q httpd
+[root@server0 ~]# rpm -ql httpd   #查看软件包的安装清单
+
+[root@server0 ~]# yum  remove  httpd   #卸载软件包
+
+清空Yum的缓存
+[root@server0 ~]# yum clean all
+已加载插件：langpacks
+正在清理软件源： dvd
+Cleaning up everything
+[root@server0 ~]# yum repolist 
+##################################################
+分区规划及使用
+
+ 扇区:512字节
+
+一块硬盘的“艺术”之旅
+• 识别硬盘 => 分区规划 => 格式化 => 挂载使用
+    毛坯楼层 => 打隔断 => 装修 => 入驻
+
+一  识别硬盘
+[root@server0 ~]# lsblk 
+NAME    SIZE  TYPE MOUNTPOINT
+vda      10G  disk 
+└─vda1  10G  part /
+vdb      10G  disk 
+[root@server0 ~]# ls /dev/vdb   #查看设备文件
+
+
+二  分区规划
+                                                               
+      分区模式: MBR 主启动记录   
+      最大空间支持:2T
+      类型:主分区  扩展分区  逻辑分区
+      最多只能有4个主分区
+      3个主分区+1个扩展分区(n个逻辑分区)
+      扩展分区不能格式化
+
+[root@server0 ~]# fdisk /dev/vdb
+  n 创建新的分区----->回车----->回车---->回车----->在last结束时 +2G
+  p 查看分区表
+  n 创建新的分区----->回车----->回车---->回车----->在last结束时 +1G
+  d 删除分区
+  w 保存并退出 
+
+[root@server0 ~]# lsblk
+[root@server0 ~]# ls /dev/vdb[1-2]
+
+     /dev/sda5表示的含义:
+              SCSI设备的硬盘,第一块第五个分区
+              SCSI设备的硬盘,第一块第一个逻辑分区
+
+三 格式化:赋予空间文件系统的过程
+
+  文件系统:空间存储数据的规则                      
+  
+   Windows: FAT  NTFS
+   Linux: ext4(RHEL6)   xfs(RHEL7)  
+
+[root@server0 ~]# mkfs.ext4 /dev/vdb1   #格式化文件系统
+[root@server0 ~]# blkid /dev/vdb1   #查看文件系统类型
+
+[root@server0 ~]# mkfs.xfs /dev/vdb2
+[root@server0 ~]# blkid /dev/vdb2
+
+四 挂载使用
+[root@server0 ~]# mkdir /part1
+[root@server0 ~]# mount /dev/vdb1 /part1
+[root@server0 ~]# df -h   #查看正在挂载设备的使用情况
+
+[root@server0 ~]# mount /dev/vdb2  /part2
+mount: 挂载点 /part2 不存在
+[root@server0 ~]# mkdir /part2
+[root@server0 ~]# mount /dev/vdb2 /part2
+[root@server0 ~]# df -h    #查看正在挂载设备的使用情况
+
+五  开机自动挂载
+• 配置文件 /etc/fstab 的记录格式
+   设备路径        挂载点      文件系统类型     参数      备份标记   检测顺序
+[root@server0 ~]# vim  /etc/fstab 
+/dev/vdb1  /part1  ext4  defaults  0 0
+/dev/vdb2  /part2  xfs  defaults  0 0
+
+[root@server0 ~]# umount /part1
+[root@server0 ~]# umount /part2
+[root@server0 ~]# df -h
+[root@server0 ~]# mount -a
+   检测/etc/fstab开机自动挂载配置文件,格式是否正确
+   检测/etc/fstab中,书写完成,但当前没有挂载的设备,进行挂载
+[root@server0 ~]# df -h
+
+####################################################
+综合分区:
+最终有3个主分区，分别为2G、1G、1G
+   创建扩展分区 --->  两个逻辑分区，分别为1G、1G
+[root@server0 ~]# fdisk  /dev/vdb
+   p 查看分区表
+   n 创建主分区----->回车----->回车---->回车----->在last结束时 +1G
+   p 查看分区表
+   n 创建扩展分区 
+          ----->回车---->起始回车----->结束回车   将所有空间给扩展分区
+   p 查看分区表
+   n 创建逻辑分区----->起始回车------>结束+1G
+   n 创建逻辑分区----->起始回车------>结束+1G
+   p 查看分区表
+   w 保存并退出
+[root@server0 ~]# partprobe   #刷新分区表
+[root@server0 ~]# lsblk 
+
+###################################################
+总结:
+1.识别硬盘     lsblk
+2.规划分区     fdisk
+3.识别分区     partprobe
+4.分区格式化   mkfs.ext4   mkfs.xfs   blkid  
+5.分区挂载    mount(手动)  /etc/fstab(自动挂载)   mount -a      df  -h
+
+###################################################
+案例1在server上操作,（MBR分区模式）规划分区
+ 添加一块80G的硬盘并规划分区：
+   划分2个10G的主分区；1个12G的主分区;1个20G的逻辑分区。
+  
+案例2:在server上操作,分区使用
+1、案例1中新添加80G硬盘的第一个逻辑分区
+– 格式化成xfs文件系统，实现该分区开机自动挂载，挂载点为/mnt/xfs
+
+2、案例1中新添加80G硬盘的第一个主分区
+– 完成开机自动挂载，挂载点/mnt/mypart,文件系统为ext4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

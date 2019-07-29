@@ -1,0 +1,346 @@
+防火墙设置:
+虚拟机server
+]# firewall-cmd --set-default-zone=trusted 
+
+虚拟机desktop
+]# firewall-cmd --set-default-zone=trusted 
+
+#####################################################
+普通NFS服务
+NFS共享概述
+• Network File System,网络文件系统
+– 用途:为客户机提供共享使用的文件夹
+– 协议:NFS(TCP/UDP 2049)、RPC(TCP/UDP 111)
+
+• 所需软件包:nfs-utils
+• 系统服务:nfs-server
+
+虚拟机Server:构建NFS共享
+1.安装软件包nfs-utils
+[root@server0 ~]# rpm -q nfs-utils
+nfs-utils-1.3.0-0.el7.x86_64
+
+2.创建共享目录及完成共享配置                                
+[root@server0 ~]# mkdir /public
+[root@server0 ~]# echo haha > /public/1.txt
+[root@server0 ~]# ls /public/
+[root@server0 ~]# vim  /etc/exports
+– 文件夹路径     客户机地址(权限) 客户机地址(权限) .. ..
+  /public    *(ro)
+
+3.重启nfs-server服务
+[root@server0 ~]# systemctl restart nfs-server
+[root@server0 ~]# systemctl enable nfs-server
+ln -s '/usr/lib/systemd/system/nfs-server.service' '/etc/systemd/system/nfs.target.wants/nfs-server.service'
+
+虚拟机desktop:
+1.查看服务端共享
+[root@desktop0 ~]# showmount -e 172.25.0.11
+Export list for 172.25.0.11:
+/public *
+
+2.进行手动挂载
+[root@desktop0 ~]# mkdir /mnt/nsd
+[root@desktop0 ~]# ls /mnt/nsd
+[root@desktop0 ~]# mount 172.25.0.11:/public  /mnt/nsd/
+[root@desktop0 ~]# ls /mnt/nsd/
+[root@desktop0 ~]# df -h
+
+3.开机自动挂载
+  _netdev:声明网络设备
+                  系统在网络服务配置完成后,再挂载本设备
+
+[root@desktop0 ~]# vim /etc/fstab 
+172.25.0.11:/public /mnt/nsd  nfs defaults,_netdev  0 0
+
+[root@desktop0 ~]# umount /mnt/nsd/
+[root@desktop0 ~]# df -h
+[root@desktop0 ~]# mount -a
+[root@desktop0 ~]# df -h
+
+####################################################
+Web服务基础:提供页面的内容
+
+   http:超文本传输协议  默认端口80
+   Hyper Text Markup Language(html),超文本标记语言
+
+• 基于 B/S (Browser/Server)架构的网页服务
+– 服务端提供网页
+– 浏览器下载并显示网页
+
+  Web服务       http协议        httpd(软件) Apache基金会
+
+虚拟机server:                       
+1.安装httpd软件
+[root@server0 ~]# yum  -y  install  httpd
+
+2.书写页面文件
+]# echo '<h1>NSD1905' > /var/www/html/index.html
+]# cat /var/www/html/index.html
+<marquee><h1>NSD1905
+
+3.重启httpd服务
+[root@server0 ~]# systemctl restart httpd
+[root@server0 ~]# systemctl enable httpd
+ln -s '/usr/lib/systemd/system/httpd.service' '/etc/systemd/system/multi-user.target.wants/httpd.service'
+[root@server0 ~]# firefox  172.25.0.11
+#####################################################
+• 软件包:httpd
+• 系统服务:httpd
+• 提供的默认配置
+– Listen:监听地址:端口(80)
+– ServerName:本站点注册的DNS名称(空缺)
+– DocumentRoot:设置网页文件根目录(/var/www/html)
+– DirectoryIndex:起始页/首页文件名(index.html)
+
+   DNS服务器:虚拟机classroom
+           server0.example.com
+           www0.example.com
+           webapp0.example.com
+
+
+DocumentRoot:设置网页文件根目录(/var/www/html)
+虚拟机server:
+]# mkdir /var/www/myweb
+]# echo '<h1>wo shi myweb' > /var/www/myweb/index.html
+
+]# vim /etc/httpd/conf/httpd.conf 
+
+ DocumentRoot "/var/www/myweb"
+
+]# systemctl restart httpd
+
+]# firefox  172.25.0.11
+
+###################################################
+客户端访问:firefox  http://172.25.0.11:80----->服务端接收------->80端口---->httpd程序----->DocumentRoot /var/www/myweb----->index.html
+
+网络路径与实际路径
+客户端:firefox  172.25.0.11 = /var/www/myweb
+服务端: /var/www/myweb
+
+客户端:firefox  172.25.0.11/abc
+服务端: /var/www/myweb/abc
+
+DocumentRoot /var/www/myweb
+客户端:firefox 172.25.0.11/var/www/myweb/nsd/test
+服务端: /var/www/myweb/var/www/myweb/nsd/test
+
+虚拟机server:
+]# mkdir /var/www/myweb/abc
+]# echo '<h1>wo shi abc' > /var/www/myweb/abc/index.html
+
+]# firefox  172.25.0.11/abc
+
+####################################################
+主配置文件:/etc/httpd/conf/httpd.conf 
+调用配置文件:/etc/httpd/conf.d/*.conf
+ 
+/etc/httpd/conf.d/dc.conf
+
+/etc/httpd/conf.d/tc.conf
+
+####################################################
+虚拟Web主机
+虚拟主机的含义及类型
+• 虚拟Web主机
+– 由同一台服务器提供多个不同的Web站点
+
+• 区分方式
+– 基于域名的虚拟主机   
+– 基于端口的虚拟主机         www.qq.com:80   www.qq.com:8000
+– 基于IP地址的虚拟主机
+
+• 为每个虚拟站点添加配置
+<VirtualHost IP地址:端口>
+  ServerName 此站点的DNS名称
+  DocumentRoot 此站点的网页根目录
+</VirtualHost>
+
+
+   DNS服务器:虚拟机classroom
+           server0.example.com
+           www0.example.com
+           webapp0.example.com
+
+
+虚拟机server:
+[root@server0 ~]# vim /etc/httpd/conf.d/nsd01.conf
+<VirtualHost  *:80>　　　　＃本机所有ip地址开启虚拟Web主机功能
+   ServerName server0.example.com  #设置网站访问的域名
+   DocumentRoot /var/www/qq        #设置网页文件存放路径
+</VirtualHost>
+
+<VirtualHost  *:80>
+   ServerName www0.example.com
+   DocumentRoot /var/www/baidu
+</VirtualHost>
+[root@server0 ~]# mkdir /var/www/qq  /var/www/baidu
+[root@server0 ~]# ls /var/www/
+]# echo '<h1>企鹅QQ'  > /var/www/qq/index.html
+]# echo '<h1>baidu摆渡'  > /var/www/baidu/index.html
+[root@server0 ~]# systemctl restart httpd
+
+一旦使用虚拟Web主机功能,所有的页面都必须利用虚拟Web主机呈现
+虚拟机Server:                           
+[root@server0 ~]# vim /etc/httpd/conf.d/nsd01.conf
+<VirtualHost  *:80>
+   ServerName server0.example.com
+   DocumentRoot /var/www/qq
+</VirtualHost>
+<VirtualHost  *:80>
+   ServerName www0.example.com
+   DocumentRoot /var/www/baidu
+</VirtualHost>
+<VirtualHost  *:80>
+   ServerName webapp0.example.com
+   DocumentRoot /var/www/myweb
+</VirtualHost>
+
+[root@server0 ~]# systemctl  restart httpd
+#####################################################
+Web访问控制
+针对网页文件存放的路径进行访问控制,默认继承父目录访问控制
+
+    /var/www/abc       #拒绝所有人访问
+    /var/www/abc/test  #拒绝所有人访问
+
+    /opt       #拒绝所有人访问
+    /opt/nsd   #单独设置允许
+    /opt/pub   #拒绝所有人访问
+
+<Directory  "/var/www">
+    Require all granted   #允许所有人
+</Directory>
+
+    Require all denied      #拒绝所有人
+
+    Require ip 172.25.0.10  #仅允许172.25.0.10进行访问
+
+###################################################
+案例:修改网站server0.example.com的网页文件路径为/webroot
+]# mkdir /webroot
+]# echo '<h1>wo shi webroot' > /webroot/index.html
+]# cat /webroot/index.html
+[root@server0 ~]# vim /etc/httpd/conf.d/nsd01.conf
+<VirtualHost  *:80>
+   ServerName server0.example.com
+   DocumentRoot /webroot    #修改存放网页路径
+</VirtualHost>
+[root@server0 ~]# vim /etc/httpd/conf/httpd.conf 
+[root@server0 ~]# vim /etc/httpd/conf.d/nsd02.conf
+<Directory "/webroot">       #针对于/webroot进行策略配置
+    Require all granted      #允许所有人访问
+</Directory>
+[root@server0 ~]# systemctl restart httpd
+[root@server0 ~]# setenforce 0  #修改SELinux状态
+[root@server0 ~]# getenforce    #查看SELinux状态
+#####################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

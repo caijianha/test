@@ -1,0 +1,59 @@
+1.下列变量名中有效的shell变量名是（  C  ）
+    A：-2-time	  B：_2$3     
+    C：trust_no_1    D：2004file
+2.Linux中黑洞设备是什么？
+       /dev/null
+
+3.Linux中命令的执行依赖于解释器，默认的解释器是哪个程序？
+       /bin/bash
+
+4.如何结束当前正在运行的命令，快捷键是？
+       Ctrl  +  c
+
+5.切换上一级目录的操作命令？去往用户root的家目录？
+      cd  ..      
+      cd ~root 或   cd  /root
+
+6.cp命令在使用时，源是一个目录时需要加什么选项？
+       -r
+
+7.请写出 禁止用户登录系统的解释器程序
+       /sbin/nologin
+
+8.将harry用户加入tedu组，请写出该命令
+    gpasswd -a harry  tedu
+ 
+9.将/usr/local进行归档及压缩为/root/file.tar.gz请写出该命令
+    tar -zcf /root/file.tar.gz  /usr/local
+
+10.将/root/file.tar.gz进行解压缩到/opt目录下  请写出该命令
+    tar  -xf  /root/file.tar.gz  -C /opt
+
+11.删除用户与删除组的命令是什么？
+     userdel  groupdel
+
+12.Linux中SGID权限用什么符号表示？出现的位置？有什么作用
+  s    
+   所属组的执行权限
+  让此目录下,新增的所有子文档,自动继承父目录的所属组身份及相应的权限
+
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

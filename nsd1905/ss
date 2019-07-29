@@ -1,0 +1,195 @@
+	     		http:超文本传输协议       默认端口80                 
+           		https:安全超文本传输协议    默认端口443      
+           		FTP:文件传输协议         默认端口21
+           		TFTP:简单的文件传输协议   默认端口69
+           		telnet:远程管理协议  默认端口23
+           		DNS:域名解析协议       默认端口53
+           		snmp:简单的网络管理协议  默认端口161
+           		smtp:邮件协议(发邮件)  默认端口25
+           		pop3:邮件协议(收邮件)  默认端口110
+
+			dvd]           #仓库标识   yum-config-manager --add
+			name=rhel7.0    #仓库描述信息
+			baseurl=http://    #指定服务端位置
+			enabled=1       #本文件启用
+			gpgcheck=0      #不检测红帽签名信息  
+			partprobe   #刷新分区表 fdisk             setfacl (ASL)
+         	 功能 		物理卷管理 		卷组管理 	逻辑卷管理
+		Scan扫描	 pvscan 	vgscan 	lvscan
+		Create创建 	pvcreate 	vgcreate 	lvcreate
+		Display显示 	pvdisplay 	vgdisplay 	lvdisplay
+		Remove删除 	pvremove 	vgremove 	lvremove
+		Extend扩展 	/ 		Vgextend 	Lvextend
+     			命令格式: lvcreate -n 逻辑卷名   -L 大小   基于的卷组名
+				mkfs.xfs  /dev/systemvg/mylv  
+      		resize2fs:扩展ext4文件系统     xfs_growfs:扩展xfs文件系统
+			vgchange -s 1M systemvg  #修改PE的大小
+ 		find [目录] [条件1]  -type 类型(f 文本文件、d 目录、l 快捷方式)
+		-name "文档名称"       -size +|-文件大小(k、M、G)
+		-user 用户名         -mtime 根据文件修改时间   -mtime 根据文件修改时间
+		NTP网络时间协议  yum -y install chrony   与NTP服务器沟通
+       	 	交换空间(虚拟内存)  mkswap /dev/vdb1 格式化交换分区 swapon -s  -a
+		swapon /dev/vdb1 启用  swapoff  停用  /dev/vdb1    swap   swap  defaults 0 0
+		使用 crontab 命令
+	– 编辑:crontab -e [-u 用户名]
+	– 查看:crontab -l [-u 用户名]
+	– 清除:crontab -r [-u 用户名]
+ 	
+
+		网络
+	display ip interface brief //查IP
+	display ip routing-table //查看路由表
+	display vlan //查看vlan
+	display cur  //查看接口状态
+	display version //查看设备信息
+	reset saved-configuration     //重置配置文件
+	display  mac-address     //查看mac地址表
+	48位(bit) 6字节(byte) 1字节=8位	
+	clear configuration interface ethernet 0/0/7   //恢复接口的默认配置,被改动过配置的接口无法直接配置trunk,可以通echo $$ 当前脚本的进程号
+
+自定义变量 a=10  unset a   取消变量  echo ${a}RMB   加{ } 分隔变量名与常量
+
+环境变量  USER  UID  HOME(家目录)  SHELL(解释器)  PATH(命令程序存放路径)  PS1(一级提示符)  PS2(二级提示符)
+
+位置变量  $1
+
+预定义变量  $0   $$   $?  $#  $*
+echo $# 位置变量的个数
+echo $* 所有位置变量
+echo $? 上一条指令的结果, 0是正常, 非0是异常
+echo $0 执行脚本的名字
+echo $! 最后一条放入后台的程序进程号,可以用sleep 1000 &测试过此命令恢复
+恢复之后的接口不要忘记从新进入此接口使用undo shutdown命令开启接口
+
+env  查看所有环境变量
+set  查看所有变量
+""  界定范围   
+''   界定范围,可以屏蔽特殊符号
+``(反撇)    获取指令的结果
+stty -echo   //关闭回显
+stty echo	//恢复回显
+export a=10    //创建新变量,并发布成全局变量
+export a		//对已有的变量,发布全局
+export -n a		//撤销全局变量,恢复局部变量
+\ 转义符号,屏蔽之后一个字符的特殊含义
+
+let  可以改变变量本身的值, 不显示结果
+let a=a+1  要写成  let a++
+let a=a+2  要写成  let a+=2
+let a=a-1  要写成  let a--
+let a=a*10       let a*=10
+let a=a/5        let a/=5
+
+echo "scale=3;10/3" | bc  //定义小数点后面长度是3位
+
+字符串  == 是否相等        !=  是否不相等
+逻辑判断 
+&&   且   前面任务成功,才执行后续任务
+||	或  前面任务失败,才执行后续任务
+;    前面任务执行完毕后,继续执行后续任务,前后无逻辑关系
+
+-z  判断是否为空
+-eq等于  -ne不等于   -gt大于   -ge大于等于   -lt小于   -le小于等于
+文件测试,
+-e 是否存在,不分文件类别
+-f 是否存在,且是普通文件
+-d 是否存在,且是目录
+-r 是否可读 (对root无效)
+-w 是否可写 (对root无效)
+-x 是否可执行
+== 	!=	-z	! -z (-n,测试时,变量加引号) (!取反)
+-eq -ne -gt -ge -lt -le
+-e  -d  -f   -r   -w   -x
+&&   ||   ; 
+
+ping命令结合选项增加工作效率
+-c ping的次数    
+-i 每隔多久ping一次,单位是秒
+-W 反馈结果的时间,如果不通时可加快反馈时间,单位是秒
+
+if多分支
+
+if 条件测试 ;then
+	命令序列1
+elif 条件测试;then
+	命令序列2
+elif 条件测试;then
+	命令序列3
+else
+	命令序列X
+fi
+
+for循环,执行多次相同任务时使用
+for  变量名  in  值列表
+do
+    命令序列
+done
+
+
+while 条件测试
+do
+	任务序列
+done
+
+while :
+do
+	任务序列
+	sleep 1
+done
+
+case分支, 是简化版本的if,代码编写比if精简,但功能不如if强大
+
+case 变量 in
+模式1)
+	命令序列;;
+模式2)
+	命令序列2;;
+*)
+	命令序列3
+esac
+
+函数,可以定义公共的语句块,在脚本中反复调用,达到精简脚本的目的
+
+函数名 () {
+
+}
+function 函数名称 {
+
+}
+
+exit  终止脚本程序
+break  跳出循环,执行循环后任务
+continue  结束本次循环,继续下一次循环
+
+a=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+x=$[RANDOM%62]   //获取随机数0~61
+echo ${a:x:1}   //随机截取1位字符
+字穿替换
+echo ${变量名/old/new}     //替换一个
+echo ${变量名//old/new}		//替换所有
+字串删除
+echo ${a#}  掐头
+echo ${a%}  去尾 
+
+定义变量初值(备用值)
+echo ${变量名:-初值}
+echo ${p:-123}		//定义备用值,如果变量p有值则不使用备用值
+
+
+运行|重启|关闭指定的虚拟机
+– virsh start|reboot|shutdown 虚拟机名称
+
+• 强制关闭指定的虚拟机
+– virsh destroy 虚拟机名称
+
+
+
+
+
+
+
+
+
+
+
+

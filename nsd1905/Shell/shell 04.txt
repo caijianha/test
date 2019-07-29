@@ -1,0 +1,177 @@
+case分支
+
+case 变量 in
+模式1|XXX|xxx)
+	执行指令;;
+模式2)
+	执行指令;;
+模式3)
+	执行指令;;
+*)
+	执行指令
+esac
+
+function 函数名{
+	执行指令1
+	执行指令2
+}
+
+函数名 (){
+	执行指令1
+	执行指令2
+}
+
+echo -e "\033[$1m$2\033[0m"
+
+exit   
+break
+continue
+
+字串处理
+${a:0:1}    截取 
+${a/}  		替换
+${a#}		掐头
+${a%}		去尾
+${a:-}		赋初值
+
+正则表达式
+基本正则符号
+^匹配开头字串     $匹配结尾字串       ^$匹配空行
+grep root txt		//找有root的行
+grep ^root txt		//找有以root开头的行
+grep bash$ txt		//找有以bash结尾的行
+grep ^$ txt			//找空行
+
+grep [rot] txt		//查找有字母r或者o或者t的行
+grep [bin] txt		//查找有字母b或者i或者n的行
+grep bas[hg] txt	//查找有bash或者basg的行
+grep [^rot] txt		//找出拥有除了r或者o或者t的行
+
+grep "[a-z]" txt     //找有小写字母的行
+grep "[^a-z]" txt	 //找拥有除了小写字母的行
+grep "[A-Z]" txt	 //找有大写字母的行
+grep "[A-Z]" /etc/shadow
+grep "[^A-Z]" /etc/shadow  //找拥有除了大写字母的行
+grep "[a-Z]" /etc/shadow   //找所有字母
+grep "[^a-Z]" /etc/shadow  //不找字母
+grep "[0-9]" /etc/shadow   //找数字
+
+grep "roo." txt	  //找roo开头,后面追加1个任意字符的行
+grep "ro.." txt	 //找ro开头,后面追加2个任意字符的行
+grep "." txt	 //找任意单个字符
+grep ".oot" txt  //找某字符开头后面是oot的行
+grep "*" txt     //不能单独使用什么也找不到
+grep "ro*ot" txt  //找root,第一个o可以出现任意次
+grep "ro*t" txt   //找rot,o可以出现任意次
+grep "bo*i" txt   //找boi,o可以出现任意次
+grep ".*" txt		//找任意
+
+grep "ro\{2,3\}t" txt   //找root或者rooot
+grep "ro\{2\}t" txt		//找root
+grep "ro\{3\}t" txt	    //找rooot
+grep "ro\{1\}t" txt		//找rot
+grep "ro\{2,\}t" txt 	//找rot,o可以出现2次以及2次以上
+grep "ro\{3,\}t" txt    //找rot,o可以出现3次以及3次以上
+grep "ro\{1,\}t" txt    //找rot,o可以出现1次以及1次以上
+
+grep "ro+t" txt        //grep不支持扩展正则
+grep -E "ro+t" txt 	   //增加-E选项后支持
+egrep "ro+t" txt	 //或egrep,找rot,o可以出现1次以及多次
+egrep "ro?t" txt   //找rot,o可以出现0次或1次
+egrep "ro?ot" txt   //找root,第一个o可以出现0次或1次
+grep "ro\{0,1\}ot" txt  //使用基本正则实现相同效果 
+egrep "ro{0,1}ot" txt  //扩展正则更精简
+
+\b   空,空格,tab,特殊符号
+
+egrep "r|o|t" txt     //找r或o或t
+egrep "bash|nologin"  txt    //找bash或nologin
+egrep "\bbin\b" txt	   //找bin,前后不能是数字,字母,下划线
+
+vim /etc/passwd
+
+sed  流式编辑器 ,可以非交互式修改文本,逐行操作,可以实现增删改查
+
+使用方法
+一,   前置命令 |  sed 选项  (定址符)指令
+二,  sed | 选项   (定址符)指令   文本
+选项
+-n 屏蔽默认输出
+-r 支持扩展正则
+-i 写入文件
+指令
+p  输出指定内容
+df | sed -n '1p'   //输出df指令生成的文本中第1行
+sed  'p' txt      //输出所有行2次
+sed -n 'p' txt      //输出所有行1次
+sed -n '1p' txt      //输出第1行
+sed -n '2p' txt      //输出第2行
+sed -n '1,2p' txt	 //输出1到2行
+sed -n '1,3p' txt    //输出1到3行
+sed -n '2,+4p' txt    //输出第2行,以及后面的4行
+sed -n '2p;4p' txt   //输出第2行,第4行
+sed -n '1~2p' txt    //输出第1行后间隔2行才输出一次,也就是135..
+
+sed -n '/^root/p' txt   //使用正则匹配查找内容
+sed -n '/bash$/p' txt	//输出以bash结尾的行
+sed -n '/bash$/p' /etc/passwd
+sed -n '/bin/p'  txt
+sed -n '/^bin/p'  txt
+sed -n '$='  txt      //输出最后一行的行号
+sed -n '='  txt       //输出每行的行号
+sed -n '$=' /etc/passwd   //查看主机所有账户数量
+
+d  删除
+sed  '1d' txt    //删第1行
+sed  '2d' txt
+sed  '2,5d' txt   //删2到5行
+sed  '2,+1d' txt   //删第2行以及后面1行
+sed  '2d;4d' txt   //删第2行,第4行
+sed  '1~2d' txt   //删奇数行
+sed  '2~2d' txt   //删偶数行
+
+sed -i '5d' txt    //删除第5行,并写入文件
+sed '/^root/d' txt    //删除以root开头的行
+sed -r '/bash|nologin/d' txt    //删除有bash或nologin的行
+
+s 替换
+sed 's/old/new/'
+
+/bin/bash  替换成  /sbin/sh
+sed 's//bin/bash//sbin/sh/' txt    //替换失败,替换符号冲突
+sed 's#/bin/bash#/sbin/sh#' txt	   //更换替换符号为#
+sed 's(/bin/bash(/sbin/sh(' txt    //更换替换符号为(
+
+
+sed 's/.//2;s/.$//' txt3     //利用替换功能,删除每行的第2个字符和最后一个字符
+sed 's/[0-9]//g' txt3   //利用替换,删除所有数字
+
+
+\(\)  保留     \1   \2  \3
+()   划分范围
+
+egrep "(bin:/){2}" txt     //找2个连续的bin:/
+
+sed -r 's/^(.)(.*)(.)$/\3\2\1/' txt3   //将文本中第一个字符和最后一个字符互换
+
+sed -r 's/([A-Z])/[\1]/g' txt3
+
+编写脚本,实现vsftpd服务装包配置启服务的全过程,开启上传功能
+#!/bin/bash
+yum -y install vsftpd &> /dev/null
+sed -i 's/^#anon_u/anon_u/' /etc/vsftpd/vsftpd.conf
+systemctl restart vsftpd
+systemctl enable vsftpd
+chmod o+w /var/ftp/pub
+
+测试时关闭防火墙和selinux
+
+
+
+
+
+
+
+
+
+

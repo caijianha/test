@@ -1,0 +1,124 @@
+SSL虚拟主机
+cd /usr/local/nginx/conf/
+openssl genrsa > cert.key      //生产私钥
+openssl req -new -x509 -key cert.key > cert.pem  //生成证书(公钥)
+timeout 超时时间
+server {
+        listen       443 ssl;
+        server_name  www.c.com;
+
+        ssl_certificate      cert.pem;
+        ssl_certificate_key  cert.key;
+
+        ssl_session_cache    shared:SSL:1m;
+        ssl_session_timeout  5m;
+
+        ssl_ciphers  HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers  on;
+
+        location / {
+            root   c;
+            index  index.html index.htm;
+        }
+    }
+:99,117/s/#//
+vim /etc/hosts
+
+###############################################################################
+LNMP(linux,nginx,mysql,php)
+ 静态页面(a.doc,a.jpg,a.mp3a.mp4) 
+ 动态页面(a.sh,a.php,a.jspm[jave],a.py,a.perl) 必须装相应的解释器
+yum -y install mariadb mariadb-server mariadb-devel php php-mysql php-fpm
+systemctl restart mariadb
+systemctl status mariadb
+netstat -utnlp | grep 3306
+systemctl restart php-fpm
+netstat -utnlp | grep 9000
+
+ vim /etc/php-fpm.d/www.conf
+listen = 127.0.0.1:9000            //PHP端口号
+pm.max_children = 32                //最大进程数量
+pm.start_servers = 15                //最小进程数量
+pm.min_spare_servers = 5            //最少需要几个空闲着的进程
+pm.max_spare_servers = 32            //最多允许几个进程处于空闲状态
+
+ vim /usr/local/nginx/conf/nginx.conf
+location / {
+            root   html;
+            index  index.php  index.html   index.htm;
+#设置默认首页为index.php，当用户在浏览器地址栏中只写域名或IP，不说访问什么页面时，服务器会把默认首页index.php返回给用户
+        }
+ location  ~  \.php$  {
+            root           html;
+            fastcgi_pass   127.0.0.1:9000;    #将请求转发给本机9000端口，PHP解释器
+            fastcgi_index  index.php;
+            #fastcgi_param   SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+            include        fastcgi.conf;       #加载其他配置文件
+        }
+
+/usr/local/nginx/sbin/nginx -s reload
+
+ vim /usr/local/nginx/html/test.php
+<?php
+$i="This is a test Page";
+echo $i;
+?>
+客户端使用浏览器访问服务器
+
+##############################################################################
+ 地址重写
+修改配置文件(访问a.html重定向到b.html)
+vim /usr/local/nginx/conf/nginx.conf
+.. ..
+server {
+        listen       80;
+        server_name  localhost;
+rewrite /a.html  /b.html;            
+location / {
+    root   html;
+index  index.html index.htm;
+
+ firefox  http://192.168.4.5/a.html
+
+访问a.html重定向到b.html（跳转地址栏）
+rewrite /a.html  /b.html  redirect;       
+ firefox  http://192.168.4.5/a.html
+
+修改配置文件(访问192.168.4.5的请求重定向至www.tmooc.cn)
+  listen       80;
+        server_name  localhost;
+rewrite ^/  http://www.tmooc.cn/;
+ firefox  http://192.168.4.5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

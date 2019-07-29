@@ -1,0 +1,214 @@
+rsync同步操作
+
+rsync同步操作
+• 命令用法
+– rsync [选项...]  源目录    目标目录
+
+• 同步与复制的差异
+– 复制:完全拷贝源到目标
+– 同步:增量拷贝,只传输变化过的数据
+
+• rsync操作选项
+– -n:测试同步过程,不做实际修改
+– --delete:删除目标文件夹内多余的文档
+– -a:归档模式,相当于-rlptgoD
+– -v:显示详细操作信息
+– -z:传输过程中启用压缩/解压  
+
+• 本地同步
+– rsync [选项...] 本地目录1   本地目录2    //同步整个文件夹	
+– rsync [选项...] 本地目录1/  本地目录2  //只同步目录下的数据
+  
+
+虚拟机A:
+]# mkdir /nsd04   /dir
+]# cp -r  /etc/passwd  /etc/fstab   /home  /nsd04
+]# ls /nsd04
+
+]# rsync -av  /nsd04/   /dir/
+]# ls /dir
+
+]# touch   /nsd04/1.txt
+]# rsync -av  /nsd04/   /dir/
+]# ls /dir
+
+]# touch   /nsd04/2.txt
+]# rsync -av  /nsd04/   /dir/
+]# ls /dir
+ 
+]# touch /dir/{10..15}.txt      
+]# ls /nsd04/
+]# ls /dir
+]# rsync -av  --delete /nsd04/   /dir/
+]# ls /dir
+
+
+]# mkdir /dir/test
+]# ls /nsd04/
+]# ls /dir
+]# rsync -av  --delete  /nsd04/   /dir/
+]# ls /dir
+
+################################################
+rsync+SSH同步
+
+• 与远程的 SSH目录保持同步
+– 下行:rsync [...]   user@host:远程目录       本地目录
+– 上行:rsync [...]   本地目录     user@host:远程目录
+
+虚拟机A:
+]# ls /dir/
+]# rsync -av --delete  /dir/  root@192.168.4.207:/opt/
+
+虚拟机B:
+]# ls /opt
+]# touch /opt/tt.txt
+]# ls /opt
+
+虚拟机A:
+]# rsync -av --delete  /dir/  root@192.168.4.207:/opt/
+
+####################################################
+实时同步
+一 生成公钥 私钥,完成ssh无密码验证
+虚拟机A:
+]# ssh-keygen 	  #一路回车
+]# ls /root/.ssh/   #公钥  私钥生成位置
+
+]# ssh-copy-id root@192.168.4.207  #传输公钥到虚拟机B
+
+]# touch /dir/33.txt
+]# rsync -av --delete  /dir/  root@192.168.4.207:/opt/
+
+
+二   监控目录内容变化
+真机:
+]$ scp   /本地路径/源数据     root@对方IP地址:/对方的路径
+]$ ls  /linux-soft/01
+]$ scp /linux-soft/01/tools.tar.gz   root@192.168.4.7:/opt
+
+步骤1:安装make与gcc,开发工具         
+]# yum -y install make gcc
+步骤2:tar解包,释放源代码至指定目录
+]# tar -xf /opt/tools.tar.gz -C /usr/
+]# tar -xf /usr/tools/inotify-tools-3.13.tar.gz -C /usr/local
+步骤3: ./configure 配置,指定安装目录/功能模块等选项
+]# cd /usr/local/inotify-tools-3.13/
+]# ./configure 
+ 
+步骤4:make 编译,生成可执行的二进制程序文件
+]# make 
+步骤5: make install 安装,将编译好的文件复制到安装目录
+]# make  install
+]# ls /usr/local/bin/inotifywait  #确认监控程序的生成
+/usr/local/bin/inotifywait
+
+inotifywait监控
+• 基本用法
+– inotifywait [选项] 目标文件夹
+
+• 常用命令选项
+– -m,持续监控(捕获一个事件后不退出)
+– -r,递归监控、包括子目录及文件
+– -q,减少屏幕输出信息
+– -e,指定监视的 modify、move、create、delete、attrib 等事件类别
+
+   inotifywait
+
+   rsync -av --delete  /dir/  root@192.168.4.207:/opt/
+
+四  书写同步Shell脚本
+      解决重复操作,循环
+   for循环:适合写有次数的循环
+   while循环:适合写不定次数的循环(死循环)
+   
+       while  条件或命令
+        do
+                循环执行的代码
+        done
+
+[root@svr7 /]# vim /root/rsync.sh
+#!/bin/bash
+while   inotifywait -rqq /dir/ 
+ do
+   rsync -a --delete  /dir/  root@192.168.4.207:/opt/  
+ done
+
+[root@svr7 /]# chmod +x /root/rsync.sh
+[root@svr7 /]# /root/rsync.sh 
+
+####################################################
+环境变量
+  $PATH:提供命令程序的搜寻路径
+[root@cobbler /]# cat /opt/hello.sh 
+#!/bin/bash
+echo hello
+[root@cobbler /]# chmod  +x  /opt/hello.sh 
+
+[root@cobbler ~]# hello.sh
+bash: hello.sh: 未找到命令...
+[root@cobbler ~]# echo $PATH
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+[root@cobbler ~]# cp /opt/hello.sh /usr/bin
+[root@cobbler ~]# hello.sh 
+
+##################################################
+wc统计                                          
+   -l:统计行数
+
+统计Linux当前系统有多少个用户?
+[root@cobbler /]# wc -l /etc/passwd
+44 /etc/passwd
+
+统计Linux系统的/etc目录有多少个以tab结尾的文件?
+]# find /etc/ -name "*tab"    -type f   |  wc -l
+
+]# find /etc/ -name "*.conf"  -type f   | wc -l
+
+####################################################
+umask值:权限掩码
+  与用户创建的目录默认权限有关
+
+####################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

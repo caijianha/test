@@ -1,0 +1,216 @@
+	1：安装部署Tomcat服务器
+
+    部署Tomcat服务器软件(192.168.2.100/24)
+yum -y install  java-1.8.0-openjdk                //安装JDK
+yum -y install java-1.8.0-openjdk-headless        //安装JDK
+ java -version                                    //查看JAVA版本
+
+    安装Tomcat（apache-tomcat-8.0.30.tar.gz软件包，在lnmp_soft中有提供）
+ tar -xf  apache-tomcat-8.0.30.tar.gz
+ mv apache-tomcat-8.0.30  /usr/local/tomcat
+ls /usr/local/tomcat
+bin/                                            //主程序目录
+lib/                                            //库文件目录
+logs/                                          //日志目录  
+temp/                                         //临时目录
+work/                                        //自动编译目录jsp代码转换servlet
+conf/                                        //配置文件目录
+webapps/                                        //页面目录
+
+     启动服务
+/usr/local/tomcat/bin/startup.sh
+netstat -nutlp |grep java        //查看java监听的端口
+tcp        0      0 ::ffff:127.0.0.1:8005     :::*         LISTEN       2778/java  
+
+ 提示：如果检查端口时，8005端口启动非常慢，可用使用下面的命令用urandom替换random（非必须操作）。
+ mv /dev/random  /dev/random.bak
+ ln -s /dev/urandom  /dev/random
+
+       客户端浏览测试页面(proxy作为客户端)
+ firefox http://192.168.2.100:8080
+
+       修改Tomcat配置文件   创建测试JSP页面
+vim  /usr/local/tomcat/webapps/ROOT/test.jsp
+<html>
+<body>
+<center>
+Now time is: <%=new java.util.Date()%>            //显示服务器当前时间
+</center>
+</body>
+</html>
+
+         验证测试  服务器验证端口信息
+ firefox http://192.168.2.100:8080/test.jsp
+
+###############################################################################
+
+ 2：使用Tomcat部署虚拟主机
+	沿用练习二，使用Tomcat部署加密虚拟主机，实现以下要求：
+	实现两个基于域名的虚拟主机，域名分别为：www.a.com和 www.b.com
+	使用www.a.com域名访问的页面根路径为/usr/local/tomcat/a/ROOT
+	使用www.b.com域名访问的页面根路径为/usr/local/tomcat/b/base
+	访问www.a.com/test时，页面自动跳转到/var/www/html目录下的页面
+	访问页面时支持SSL加密通讯
+	私钥、证书存储路径为/usr/local/tomcat/conf/cert
+	每个虚拟主机都拥有独立的访问日志文件
+	配置tomcat集群环境
+
+       (1) 配置服务器虚拟主机
+vim /usr/local/tomcat/conf/server.xml
+… …
+<Host name="www.a.com" appBase="a" unpackWARS="true" autoDeploy="true">
+</Host>
+<Host name="www.b.com" appBase="b" unpackWARS="true" autoDeploy="true">
+</Host>
+
+   创建虚拟主机对应的页面根路径
+ mkdir -p  /usr/local/tomcat/{a,b}/ROOT
+echo "AAA"   > /usr/local/tomcat/a/ROOT/index.html
+echo "BBB" > /usr/local/tomcat/b/ROOT/index.html
+
+   重启Tomcat服务器
+ /usr/local/tomcat/bin/shutdown.sh
+/usr/local/tomcat/bin/startup.sh
+
+   客户端设置host文件，并浏览测试页面进行测试
+ vim /etc/hosts
+192.168.2.100      www.a.com  www.b.com
+ firefox http://www.a.com:8080/        //注意访问的端口为8080
+
+         (2) 修改www.b.com网站的首页目录为base
+ vim /usr/local/tomcat/conf/server.xml
+<Host name="www.a.com" appBase="a" unpackWARS="true" autoDeploy="true">
+</Host>
+<Host name="www.b.com" appBase="b" unpackWARS="true" autoDeploy="true">
+<Context path="" docBase="base"/>
+</Host>
+
+ mkdir  /usr/local/tomcat/b/base
+echo "BASE" > /usr/local/tomcat/b/base/index.html
+ /usr/local/tomcat/bin/shutdown.sh
+/usr/local/tomcat/bin/startup.sh
+
+测试查看页面是否正确
+ firefox http://www.b.com:8080/        //结果为base目录下的页面内容
+
+	跳转
+   当用户访问http://www.a.com/test打开/var/www/html目录下的页面
+ vim /usr/local/tomcat/conf/server.xml
+<Host name="www.a.com" appBase="a" unpackWARS="true" autoDeploy="true">
+<Context path="/test" docBase="/var/www/html/" />
+</Host>
+<Host name="www.b.com" appBase="b" unpackWARS="true" autoDeploy="true">
+<Context path="" docBase="base" />
+</Host>
+
+ echo "Test" > /var/www/html/index.html
+ /usr/local/tomcat/bin/shutdown.sh
+/usr/local/tomcat/bin/startup.sh
+
+  测试查看页面是否正确(proxy充当客户端角色)
+ firefox http://www.a.com:8080/test    
+//返回/var/www/html/index.html的内容
+//注意，访问的端口为8080
+
+ 	配置Tomcat支持SSL加密网站
+   创建加密用的私钥和证书文件
+keytool -genkeypair -alias tomcat -keyalg RSA -keystore /usr/local/tomcat/keystore                //提示输入密码为:123456
+//-genkeypair     生成密钥对
+//-alias tomcat     密钥别名
+//-keyalg RSA     定义密钥算法为RSA算法
+//-keystore         定义密钥文件存储在:/usr/local/tomcat/keystore
+
+   再次修改server.xml配置文件，创建支持加密连接的Connector
+vim /usr/local/tomcat/conf/server.xml
+<Connector port="8443" protocol="org.apache.coyote.http11.Http11NioProtocol"
+maxThreads="150" SSLEnabled="true" scheme="https" secure="true"
+keystoreFile="/usr/local/tomcat/keystore" keystorePass="123456" clientAuth="false" sslProtocol="TLS" />
+//备注，默认这段Connector被注释掉了，打开注释，添加密钥信息即可
+
+   重启Tomcat服务器
+  客户端设置host文件，并浏览测试页面进行测试(proxy充当客户端角色)
+ firefox https://www.a.com:8443/
+
+	配置Tomcat日志
+  为每个虚拟主机设置不同的日志文件
+vim /usr/local/tomcat/conf/server.xml
+
+<Host name="www.a.com" appBase="a" unpackWARS="true" autoDeploy="true">
+<Context path="/test" docBase="/var/www/html/" />
+#从默认localhost虚拟主机中把Valve这段复制过来，适当修改下即可
+<Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+               prefix=" a_access" suffix=".txt"
+               pattern="%h %l %u %t &quot;%r&quot; %s %b" />
+</Host>
+<Host name="www.b.com" appBase="b" unpackWARS="true" autoDeploy="true">
+<Context path="" docBase="base" />
+<Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+               prefix=" b_access" suffix=".txt"
+               pattern="%h %l %u %t &quot;%r&quot; %s %b" />
+</Host>
+
+  重启Tomcat服务器
+  查看服务器日志文件
+ls /usr/local/tomcat/logs/
+
+
+	扩展实验(配置Tomcat集群)
+ 在192.168.4.5主机上配置Nginx调度器（具体安装步骤参考前面的章节）
+在192.168.2.100和192.168.2.200主机上配置Tomcat调度器
+启动服务
+
+###############################################################################
+
+	3：使用Varnish加速Web
+使用Varnish加速后端Web服务
+代理服务器可以将远程的Web服务器页面缓存在本地
+远程Web服务器对客户端用户是透明的
+利用缓存机制提高网站的响应速度
+使用varnishadm命令管理缓存页面
+使用varnishstat命令查看Varnish状态
+
+构建Web服务器
+
+部署Varnish缓存服务器(192.168.4.5)
+
+yum -y install gcc readline-devel    //安装软件依赖包
+yum -y install ncurses-devel         //安装软件依赖包
+yum -y install pcre-devel            //安装软件依赖包
+yum -y install python-docutils         //安装软件依赖包
+ useradd -s /sbin/nologin varnish                //创建账户
+tar -xf varnish-5.2.1.tar.gz
+
+ cd varnish-5.2.1
+./configure
+ make && make install
+）复制启动脚本及配置文件
+cp  etc/example.vcl   /usr/local/etc/default.vcl
+
+修改代理配置文件
+vim  /usr/local/etc/default.vcl
+backend default {
+     .host = "192.168.2.100";
+     .port = "80";
+ }
+
+启动服务
+varnishd  -f /usr/local/etc/default.vcl
+  
+
+        客户端测试
+ curl http://192.168.4.5
+
+其他操作
+ varnishlog                        //varnish日志
+varnishncsa                    //访问日志
+）更新缓存数据，在后台web服务器更新页面内容后，用户访问代理服务器看到的还是之前的数据，说明缓存中的数据过期了需要更新（默认也会自动更新，但非实时更新）。
+varnishadm  
+varnish> ban req.url ~ .*
+//清空缓存数据，支持正则表达
+
+varnishlog  详细日志
+varnishncsa  普通日志
+
+
+
+

@@ -1,0 +1,77 @@
+使用LDAP认证,实现网络用户认证,达到用户的集中管理
+  
+     网络用户:用户信息会放在网络中LDAP服务器
+     本地用户:用户信息会放在/etc/passwd
+
+LDAP服务器:虚拟机classroom
+
+客户端:虚拟机server
+1.安装sssd软件,与LDAP服务器沟通
+[root@server0 /]# yum -y install sssd
+[root@server0 /]# rpm -q sssd
+
+2.安装authconfig-gtk图形的工具,进行配置客户端sssd软件
+[root@server0 /]# yum -y install authconfig-gtk
+[root@server0 /]# authconfig-gtk
+
+完全合格的主机名  www.baidu.com　　　www.qq.com    
+               classroom.example.com
+
+     选择LDAP
+      dc=example,dc=com             #指定服务端域名
+      classroom.example.com         #指定服务端主机名
+     勾选TLS加密
+      使用证书加密:
+     http://classroom.example.com/pub/example-ca.crt
+
+     选择LDAP密码 
+
+3.重起服务
+[root@server0 ~]# systemctl  restart  sssd   #重起服务
+[root@server0 ~]# systemctl  enable  sssd    #设置开机自启动
+[root@server0 ~]# grep ldapuser0 /etc/passwd
+[root@server0 ~]# id ldapuser0     #验证LDAP用户信息
+          
+###################################################      
+家目录漫游
+
+    在LDAP服务器搭建共享,共享所有普通用户的家目录
+
+  LDAP服务器:虚拟机classroom
+
+  虚拟机classroom已经完成共享所有操作
+
+ 虚拟机server:访问共享数据
+[root@server0 ~]# mkdir /haha
+[root@server0 ~]# ls /haha
+[root@server0 ~]# showmount -e classroom.example.com
+Export list for classroom.example.com:
+/home/guests 172.25.0.0/255.255.0.0
+
+[root@server0 ~]# mount classroom.example.com:/home/guests  /haha
+[root@server0 ~]# df -h
+
+[root@server0 ~]# mkdir /home/guests
+[root@server0 ~]# mount classroom.example.com:/home/guests/   /home/guests
+[root@server0 ~]# ls /home/guests
+
+[root@server0 ~]# su - ldapuser0
+上一次登录：三 4月 10 19:21:04 CST 2019pts/0 上
+[ldapuser0@server0 ~]$ 
+
+################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

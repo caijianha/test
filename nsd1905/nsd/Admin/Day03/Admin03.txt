@@ -1,0 +1,434 @@
+如何编写命令行
+• Linux命令
+– 用来实现某一类功能的指令或程序
+  Linux执行命令时,需要找到相应的程序文件
+
+– 命令的执行依赖于解释器(Linux默认的解释器:/bin/bash)
+
+     用户------>解释器------>内核----->硬件
+
+ 绿色:可以执行的程序
+
+
+命令行的一般格式
+• 基本用法
+– 命令字      [选项]...     [参数1]    [参数2]...
+
+[root@B ~]# cat --help     #查看命令帮助信息
+[root@B ~]# cat -n /etc/default/useradd 
+  
+[root@B ~]# cat -n /etc/passwd
+[root@B ~]# cat -n /etc/fstab
+[root@B ~]# cat -n /etc/hosts
+
+
+快速编辑技巧
+• Tab键自动补全
+– 可补齐命令字、选项、参数、文件路径、软件名、服务名
+
+• 快捷键
+– Ctrl + l:清空整个屏幕                                   
+– Ctrl + c:废弃当前编辑的命令行(结束正在运行的命令)
+– Esc + . 或  Alt + .:粘贴上一个命令的参数
+
+]# ls /etc/sysconfig/network-scripts/ifcfg-eth0
+]# cat   Alt + .
+]# cat -n Alt + .
+]# head -2  Alt + .
+]# tail -2  Alt + .
+
+– Ctrl + u:从光标处清空至行首
+– Ctrl + w:往回删除一个单词(以空格界定
+
+###################################################
+mount挂载操作:可以让目录成为设备的访问点
+从光盘中获取软件包
+让Linux显示光盘内容
+
+Windows: 光盘文件------>光驱设备------>CD驱动器(图标)访问点
+
+Linux: 光盘文件------>光驱设备------>访问点(目录)
+
+1.图形将光盘文件放入虚拟光驱设备
+2.查看光驱设备
+   青色:快捷方式
+[root@B ~]# ls /dev/sr0
+/dev/sr0
+[root@B ~]# ls /dev/cdrom
+/dev/cdrom
+[root@B ~]# ls -l /dev/cdrom    #显示参数的详细属性
+lrwxrwxrwx. 1 root root 3 6月   3 10:00 /dev/cdrom -> sr0
+
+3.挂载设备
+[root@B ~]# mkdir /dvd
+[root@B ~]# ls /dvd
+
+• 使用mount命令
+– 格式:mount 设备路径   挂载点目录
+[root@B ~]# mount /dev/cdrom   /dvd
+[root@B ~]# ls /dvd/
+
+[root@B ~]# ls /dvd/P(tab)
+
+4.卸载
+[root@B ~]# umount  /dvd
+[root@B ~]# ls /dvd
+
+[root@B ~]# mount  /dev/cdrom  /opt/
+mount: /dev/sr0 写保护，将以只读方式挂载
+[root@B ~]# ls  /opt/
+
+[root@B ~]# umount  /opt/
+[root@B ~]# ls  /opt/
+##################################################
+注意事项:                                                 
+ 1.卸载,当前不要挂载点目录下
+[root@B dvd]# umount  /dvd/
+umount: /dvd：目标忙。
+        (有些情况下通过 lsof(8) 或 fuser(1) 可以
+         找到有关使用该设备的进程的有用信息)
+
+ 2.一个设备可以有多个挂载点
+ 3.不允许一个挂载点有多个设备
+ 4.建议挂载点目录的选择,最好自己创建
+#################################################
+
+查看及切换目录
+
+• cd — Change Directory
+– 用途:切换工作目录
+– 格式:cd [目标文件夹位置]
+
+    ~:表示用户家目录
+  ~user表示用户user的家目录
+  /root:为管理员的家目录
+  /home:存放所有普通用户家目录
+[root@B ~]# cd ~root
+[root@B ~]# pwd
+/root
+[root@B ~]# useradd  tom    #创建tom用户
+[root@B ~]# cd ~tom         #切换普通用户tom家目录
+[root@B tom]# pwd           
+
+[root@B tom]# useradd  harry   #创建harry用户
+[root@B tom]# cd ~harry        #切换普通用户harry家目录
+[root@B harry]# pwd
+
+ . 表示当前目录
+ .. 表示父目录
+
+##################################################
+• ls — List
+– 格式:ls [选项]... [目录或文件名]
+
+• 常用命令选项
+– -l:以长格式显示,显示详细属性
+– -h:提供易读的容量单位(K、M等)
+– -A:包括名称以 . 开头的隐藏文档
+– -d:显示目录本身(而不是内容)的属性
+
+[root@B ~]# ls /root
+[root@B ~]# ls -l /root
+[root@B ~]# ls   -ld  /root
+[root@B ~]# ls  -l  /etc/passwd
+[root@B ~]# ls -lh /etc/passwd
+
+[root@B ~]# ls -lh /etc/fstab
+[root@B ~]# ls -lh /var/log/message
+
+[root@B ~]# ls /root
+[root@B ~]# ls -A /root/
+
+[root@B ~]# ls /boot
+[root@B ~]# ls -A /boot
+[root@B ~]# ls -lA /boot
+
+[root@B ~]# touch /mnt/.abc.txt
+[root@B ~]# ls /mnt
+[root@B ~]# ls -A /mnt
+
+##################################################
+使用通配符
+• 针对不确定的文档名称,以特殊字符表示
+– *:任意多个任意字符
+– ?:单个字符
+[root@B ~]# ls /boot/v*   #匹配以v开头
+[root@B ~]# ls /root/a*   #匹配以a开头
+[root@B ~]# ls /dev/tty*  #匹配以tty开头
+
+[root@B ~]# ls /etc/*tab    #匹配以tab结尾
+[root@B ~]# ls /etc/*.conf  #匹配以.conf结尾
+
+[root@B ~]# ls /etc/??tab
+
+[root@B ~]# ls /dev/tty?
+[root@B ~]# ls /dev/tty??
+[root@B ~]# ls /dev/tty???
+
+• 针对不确定的文档名称,以特殊字符表示
+– [a-z]:多个字符或连续范围中的一个,若无则忽略
+– {a,min,xy}:多组不同的字符串,全匹配
+
+[root@B ~]# ls /dev/tty[3-8]
+[root@B ~]# ls /dev/tty[0-7]
+[root@B ~]# ls /dev/tty[1-9]
+
+[root@B ~]# ls /dev/tty{1,3,5,7,9,27}
+[root@B ~]# ls /dev/tty{1,3,5,7,9,27,S0}
+[root@B ~]# ls /dev/tty{haha,xixi}
+
+####################################################
+ 显示/dev/tty20至/dev/tty30范围所有设备文件?
+[root@B ~]# ls /dev/tty2[0-9]
+[root@B ~]# ls /dev/tty2?
+
+[root@B ~]# ls /dev/tty2[0-9]  /dev/tty30
+
+[root@B ~]# ls /dev/tty{2[0-9],30}
+
+#################################################
+别名的定义:简化复杂的命令
+[root@B ~]# hostname
+B.tedu.cn
+[root@B ~]# hn
+bash: hn: 未找到命令...
+[root@B ~]# alias hn='hostname'  #别名的定义
+[root@B ~]# hn
+B.tedu.cn
+[root@B ~]# alias            #显示当前系统生效的别名
+[root@B ~]# unalias hn       #删除别名hn
+[root@B ~]# hn
+bash: hn: 未找到命令...
+[root@B ~]# 
+
+[root@B ~]# alias qq='ls -lh  /etc/passwd'
+[root@B ~]# qq
+
+##############################################
+
+mkdir 创建目录
+• mkdir — Make Directory
+– 格式:mkdir [-p] [/路径/]目录名...
+    //-p表示连父目录一起创建
+
+[root@B ~]# mkdir -p /vod/movie/cartoon
+[root@B ~]# ls /vod
+[root@B ~]# ls /vod/movie
+
+[root@B ~]# mkdir -p /opt/aa/bb/cc/dd
+[root@B ~]# ls /opt/
+[root@B ~]# ls /opt/aa
+[root@B ~]# ls /opt/aa/bb/
+[root@B ~]# ls /opt/aa/bb/cc
+
+[root@B ~]# mkdir -p /opt/nsd/1905
+[root@B ~]# ls /opt/
+[root@B ~]# ls /opt/nsd
+
+  -R:递归显示                           
+
+[root@B ~]# ls -R /opt/aa
+/opt/aa:
+bb
+
+/opt/aa/bb:
+cc
+
+/opt/aa/bb/cc:
+dd
+
+/opt/aa/bb/cc/dd:
+[root@B ~]# 
+
+
+####################################################
+
+rm 删除
+• rm — Remove
+– 格式:rm [选项]... 文件或目录...
+
+• 常用命令选项
+– -r、-f:递归删除(含目录)、强制删除
+
+[root@B ~]# mkdir /opt/nsd01
+[root@B ~]# mkdir /opt/nsd02
+[root@B ~]# touch /opt/1.txt
+[root@B ~]# ls /opt/
+
+[root@B ~]# rm -rf /opt/nsd*
+[root@B ~]# ls /opt/
+
+[root@B ~]# rm -rf /opt/1.txt
+[root@B ~]# ls /opt/
+
+
+• vim文本编辑器
+– 格式:vim [[/目录/]文件名]
+– 若目标文件不存在,则新建空文件并编辑
+– 若目标文件已存在,则打开此文件并编辑
+
+[root@B ~]# vim /opt/xixi.txt
+
+	 命----i键 或 o键----->插入模式(按Esc回到命令模式)
+	 令
+	 模
+	 式----:键----->末行模式(按Esc回到命令模式)
+
+     末行模式   :wq 保存并退出
+     末行模式   :q! 强制不保存并退出
+
+     命令模式    u 可以进行撤销
+################################################
+查找文本内容
+• 根据字符串模式提取文本行
+– grep [选项] '匹配模式'     文本文件...
+
+• 常用命令选项
+– -v,取反匹配,不包含
+– -i,忽略大小写
+
+[root@B ~]# grep root /etc/passwd
+
+[root@B ~]# grep ROOT /etc/passwd
+[root@B ~]# grep -i ROOT /etc/passwd      
+
+[root@B ~]# grep -v root /etc/passwd
+
+– ^root  以字符串root开头
+– root$  以字符串root结尾
+
+[root@B ~]# grep  ^root  /etc/passwd
+[root@B ~]# grep  root$  /etc/passwd
+[root@B ~]# grep  bash$  /etc/passwd
+
+##################################################
+mv 移动/改名
+• mv — Move
+– 格式:mv   原文件...     目标路径
+
+[root@B ~]# mkdir /opt/nsd
+[root@B ~]# touch /opt/1.txt
+[root@B ~]# ls /opt/
+
+[root@B ~]# mv /opt/1.txt  /opt/nsd
+[root@B ~]# ls /opt/
+[root@B ~]# ls /opt/nsd/
+
+重命名:路径不变的移动
+[root@B ~]# ls /opt/
+[root@B ~]# mv /opt/nsd  /opt/student
+[root@B ~]# ls /opt/
+
+[root@B ~]# mv /opt/student/ /opt/abc
+[root@B ~]# ls /opt/
+##################################################
+
+cp 复制
+• cp — Copy
+– 格式:cp [选项]... 原文件...     目标路径
+
+• 常用命令选项
+– -r:递归,复制目录时必须有此选项
+[root@B ~]# rm -rf /opt/*
+[root@B ~]# ls /opt/
+[root@B ~]# cp /etc/passwd   /opt/
+[root@B ~]# ls /opt/
+
+[root@B ~]# cp /etc/fstab   /opt/
+[root@B ~]# ls /opt/
+
+[root@B ~]# cp -r /home/  /opt/
+[root@B ~]# ls /opt/
+
+[root@B ~]# cp -r /boot  /opt/
+[root@B ~]# ls /opt/
+
+复制出现同名强制覆盖
+在本次操作临时取消别名
+[root@B ~]# cp -r /boot/  /opt/
+[root@B ~]# cp -r /boot/  /opt/
+
+[root@B ~]# \cp -r /boot/  /opt/
+
+复制可以支持两个以上的参数:
+   永远把最后一个参数作为目标,其他的所有参数都作为源
+[root@B ~]# rm -rf /opt/*
+[root@B ~]# ls /opt/
+[root@B ~]# cp -r /etc/passwd /etc/fstab  /etc/hosts /home/  /boot/  /opt/
+[root@B ~]# ls /opt/
+
+复制与 . 进行连用
+[root@B ~]# cd /opt/
+[root@B opt]# pwd
+[root@B opt]# cp /etc/login.defs   .   #复制到当前路径下
+[root@B opt]# ls
+[root@B opt]# cd /etc/sysconfig/network-scripts/
+[root@B network-scripts]# pwd
+[root@B network-scripts]# cp /etc/passwd     .   
+[root@B network-scripts]# ls
+
+复制时可以重新命名,目标路径下名称                   
+[root@B /]# cp /etc/shadow  /opt/abc.txt
+[root@B /]# ls /opt/
+
+[root@B /]# cp /etc/redhat-release   /opt/rr
+[root@B /]# ls /opt/
+
+[root@B /]# cp /etc/passwd  /opt/p.txt
+[root@B /]# ls /opt/
+
+[root@B /]# cp -r /home  /opt/test
+[root@B /]# ls /opt/
+
+###################################################
+重定向输出:将命令的输出,作为文本文件内容写入一个文件中
+ >:覆盖重定向
+ >>:追加重定向
+[root@B /]# ls --help   >  /opt/ls.txt
+[root@B /]# ls /opt/
+[root@B /]# less /opt/ls.txt 
+
+[root@B /]# hostname
+[root@B /]# hostname > /opt/ls.txt 
+[root@B /]# cat  /opt/ls.txt
+
+[root@B /]# hostname >> /opt/ls.txt 
+[root@B /]# cat /opt/ls.txt
+
+
+[root@B /]# echo hello
+hello
+[root@B /]# echo 123456
+123456
+[root@B /]# echo 1+1
+1+1
+[root@B /]# echo 123456  >>  /opt/ls.txt 
+[root@B /]# cat /opt/ls.txt
+
+[root@B /]# echo 123456 > /opt/ls.txt 
+[root@B /]# cat /opt/ls.txt
+
+################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

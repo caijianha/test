@@ -1,0 +1,317 @@
+一 安装一台图形的虚拟机
+    手动进行新建虚拟机
+    光盘安装  CentOS7-1804.iso
+    内存:2048    
+    网络类型:private1
+    
+软件包选择:带GUI的服务器
+分区:自动分区
+设置root密码,创建普通用户lisi
+
+   
+虚拟化概述
+• virtualization 资源管理
+– x个物理资源 --> y个逻辑资源
+– 实现程度:完全、部分、硬件辅助(CPU)
+
+   真实CPU可以识别和运行虚拟机的所有指令
+
+真机:
+[student@room9pc01 ~]$ lscpu | grep vmx
+
+####################################################
+• 虚拟化主要厂商及产品
+	VMware 		VMware Workstation、vSphere
+	Microsoft 	VirtualPC、Hyper-V
+	RedHat 		KVM、RHEV
+	Citrix 		Xen
+	Oracle 		Oracle VM VirtualBox
+
+####################################################
+虚拟机centos7.0
+1.关闭SELinux
+[root@localhost ~]# setenforce 0
+[root@localhost ~]# getenforce 
+Permissive
+[root@localhost ~]# vim /etc/selinux/config 
+SELINUX=permissive
+
+2.配置主机名:kvm.tedu.cn
+[root@localhost ~]# echo kvm.tedu.cn > /etc/hostname
+[root@localhost ~]# hostname kvm.tedu.cn
+
+3.配置IP地址:192.168.4.1/24
+[root@localhost ~]# nmcli connection modify eth0 ipv4.method manual ipv4.addresses 192.168.4.1/24 connection.autoconnect yes
+[root@localhost ~]# nmcli connection up eth0 
+
+4.构建Yum仓库,指向真机FTP提供的光盘内容         
+[root@kvm yum.repos.d]# vim  /etc/yum.repos.d/nsd.repo
+[nsd]
+name=dvd
+baseurl=ftp://192.168.4.254/centos-1804
+enabled=1
+gpgcheck=0
+[root@kvm yum.repos.d]# mkdir repo
+[root@kvm yum.repos.d]# mv *.repo   repo
+[root@kvm yum.repos.d]# ls
+[root@kvm yum.repos.d]# cp repo/nsd.repo   .
+[root@kvm yum.repos.d]# ls
+[root@kvm yum.repos.d]# yum repolist 
+
+[root@kvm yum.repos.d]# yum -y install httpd
+
+###################################################
+• 主要软件包
+– qemu-kvm: 为 kvm 提供底层仿真支持
+– libvirt-daemon: libvirtd 守护进程,管理虚拟机
+– libvirt-client: 用户端软件,提供客户端管理命令
+– libvirt-daemon-driver-qemu: libvirtd 连接 qemu 的驱动
+– virt-manager: 图形管理工具(可选)
+
+[root@kvm /]# virt-manager 
+
+#自动开启虚拟化服务
+[root@kvm ~]# systemctl status libvirtd  
+[root@kvm ~]# systemctl is-enabled libvirtd  #随机自启服务
+enabled
+[root@kvm ~]# 
+####################################################
+利用命令管理虚拟机:
+
+virsh命令工具介绍
+• 提供管理各虚拟机的命令接口
+– 支持交互模式,查看/创建/停止/关闭 .. ..
+– 格式:virsh 控制指令 [虚拟机名称] [参数]
+[root@kvmsvr ~]# virsh
+欢迎使用 virsh,虚拟化的交互式终端。
+输入:'help' 来获得命令的帮助信息
+'quit' 退出
+virsh #
+
+#################################################
+• 查看KVM节点(服务器)信息
+– virsh nodeinfo
+• 列出虚拟机
+– virsh list [--all]
+• 列出虚拟网络
+– virsh net-list [--all]
+• 查看指定虚拟机的信息
+– virsh dominfo 虚拟机名称
+
+]$ virsh dominfo  centos7.0
+]$ virsh autostart   centos7.0
+]$ virsh dominfo  centos7.0
+]$ virsh autostart --disable  centos7.0
+]$ virsh dominfo  centos7.0
+
+开关机操作
+• 运行|重启|关闭指定的虚拟机
+– virsh start|reboot|shutdown 虚拟机名称
+
+• 强制关闭指定的虚拟机
+– virsh destroy 虚拟机名称
+
+[student@room9pc01 ~]$ virsh list --all
+[student@room9pc01 ~]$ virsh destroy centos7.0
+
+[student@room9pc01 ~]$ virsh list --all
+[student@room9pc01 ~]$ virsh start centos7.0
+
+[student@room9pc01 ~]$ virsh list --all
+###################################################
+• 一台KVM虚拟机的组成
+– xml配置文件(虚拟描述文件):定义虚拟机的名称、UUID、CPU、内存、虚拟磁盘路径、网卡等各种参数设置
+xml配置文件默认路径: /etc/libvirt/qemu  
+
+– 磁盘镜像文件:保存虚拟机的操作系统及文档数据,镜像路径取决于xml配置文件中的定义
+磁盘镜像文件:/var/lib/libvirt/images/
+
+]$ virsh dumpxml centos7.0        #显示虚拟机的xml文件内容
+]$ virsh dumpxml centos7.0 | less
+
+]$ mkdir /home/student/nsdfile
+]$ virsh dumpxml centos7.0 > /home/student/nsdfile/nsd01.xml
+
+]$ vim  /home/student/nsdfile/nsd01.xml
+
+手动创建虚拟机:
+1.真机:创建磁盘镜像文件
+]$ cd /var/lib/libvirt/images/
+]$ cp .node_tedu.qcow2       nsd01.qcow2
+]$ ls 
+
+2.真机:建立xml虚拟机文件
+]$ mkdir /home/student/nsdfile
+]$ virsh dumpxml centos7.0 > /home/student/nsdfile/nsd01.xml
+
+]$ vim  /home/student/nsdfile/nsd01.xml
+ 	修改虚拟机名字 
+ 	删除UUID整行内容
+        虚拟机磁盘路径  /var/lib/libvirt/images/nsd01.qcow2
+        删除mac整行内容 <mac address......
+3.真机:导入虚拟机xml文件
+]$ virsh  define /home/student/nsdfile/nsd01.xml
+]$ virsh  list --all
+]$ virsh  start nsd01
+]$ virt-manager
+]$ virsh dumpxml nsd01  #查看虚拟机nsd01的xml文件内容
+
+####################################################
+再次手动创建虚拟机nsd02
+1.生成磁盘镜像文件
+]$ cd /var/lib/libvirt/images/
+]$ cp .node_base.qcow2   /tmp/nsd02.qcow2 
+
+2.生成xml配置文件
+]$ virsh dumpxml centos7.0 > /home/student/nsdfile/nsd02.txt
+]$ vim /home/student/nsdfile/nsd02.txt
+ 	修改虚拟机名字 
+ 	删除UUID整行内容
+        虚拟机磁盘路径  /tmp/nsd02.qcow2
+        删除mac整行内容 <mac address......
+
+]$ virsh define /home/student/nsdfile/nsd02.txt
+]$ virsh list --all
+
+###################################################
+虚拟机磁盘镜像
+
+• 虚拟机的磁盘镜像文件格式
+	特点\类型	 RAW 	QCOW2
+	KVM默认 	 否 		是
+	I/O效率 	 高 		较高
+	占用空间 	 大 		小
+	压缩 		 不支持 	支持
+	后端盘复用  不支持 	支持
+	快照 		 不支持 	支持
+
+]$ qemu-img info /var/lib/libvirt/images/centos7.0.qcow2 
+
+]$ qemu-img info /var/lib/libvirt/images/.node_tedu.qcow2 
+
+##################################################
+三合一(导出  修改  导入)的命令:virsh  edit  虚拟机名称
+1.创建磁盘镜像文件
+]$ cd  /var/lib/libvirt/images/
+]$ cp .node_base.qcow2  /tmp/nsd03.qcow2
+
+2.生成虚拟机xml文件
+]$ virsh edit centos7.0
+ 	修改虚拟机名字 
+ 	删除UUID整行内容
+        虚拟机磁盘路径  /tmp/nsd03.qcow2
+        删除mac整行内容 <mac address......
+
+]$ virsh list --all
+]$ virsh start nsd03
+
+###################################################
+COW技术原理
+• Copy On Write,写时复制
+– 直接映射原始盘(后端盘)的数据内容
+– 当原始盘(后端盘)的旧数据有修改时,在修改之前自动将旧数据存入前端盘
+– 对前端盘的修改不回写到原始盘
+– 原始盘所有内容不能再做修改
+
+• qemu-img 通过 -b 选项复用指定原始盘     
+– qemu-img create -f qcow2 -b  原始盘    前端盘    前端盘大小G
+
+1.生成磁盘镜像文件
+]$ cd /var/lib/libvirt/images/
+
+]$ qemu-img create -f qcow2  -b  centos7.0.qcow2  nsd04.qcow2  10G
+
+]$ qemu-img info nsd04.qcow2       #查看前端盘信息
+]$ qemu-img info centos7.0.qcow2   #查看原始盘信息
+
+2.生成xml配置文件
+]$ virsh dumpxml centos7.0 > /home/student/nsdfile/nsd04.xml
+]$ vim /home/student/nsdfile/nsd04.xml
+ 	修改虚拟机名字为nsd04
+ 	删除UUID整行内容
+        虚拟机磁盘路径  /var/lib/libvirt/images/nsd04.qcow2
+        删除mac整行内容 <mac address......
+
+]$ virsh define /home/student/nsdfile/nsd04.xml
+
+###################################################
+1.生成磁盘镜像文件
+]$ cd /var/lib/libvirt/images/
+]$ qemu-img create -f qcow2  -b  centos7.0.qcow2  nsd05.qcow2  10G
+
+]$ qemu-img info nsd05.qcow2       #查看前端盘信息
+
+2.生成xml配置文件
+]$ virsh edit centos7.0 
+ 	修改虚拟机名字为nsd05
+ 	删除UUID整行内容
+        虚拟机磁盘路径  /var/lib/libvirt/images/nsd05.qcow2
+        删除mac整行内容 <mac address......
+]$ virsh list  --all
+]$ virsh start  nsd05
+####################################################
+命令行删除虚拟机                             
+1.关闭虚拟机
+[student@room9pc01 /]$ virsh list --all
+[student@room9pc01 /]$ virsh destroy nsd04
+域 nsd04 被删除
+[student@room9pc01 /]$ virsh list --all
+
+2.取消定义,手动删除磁盘镜像文件
+[student@room9pc01 /]$ virsh undefine nsd04
+域 nsd04 已经被取消定义
+[student@room9pc01 /]$ virsh list --all
+[student@room9pc01 /]$ cd /var/lib/libvirt/images/
+[student@room9pc01 images]$ ls
+[student@room9pc01 images]$ rm -rf nsd04.qcow2  
+[student@room9pc01 images]$ ls
+
+####################################################
+离线访问虚拟机:虚拟机无需开机的前提,直接修改虚拟机磁盘镜像文件
+• 使用 guestmount 工具
+• 基本用法
+  guestmount -a 虚拟机磁盘路径    -i /挂载点
+
+]# 前提需要将虚拟机进行关机
+]# guestmount -o nonempty -a /var/lib/libvirt/images/centos7.0.qcow2 -i /mnt
+
+###################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

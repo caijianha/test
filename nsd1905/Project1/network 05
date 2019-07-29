@@ -1,0 +1,83 @@
+组建大型企业网络
+1,终端设备(pc或服务器)按不同vlan配置不同网段的ip
+vlan10  192.168.10.1
+vlan20  192.168.20.1
+.....
+2,添加新vlan,使所有交换机拥有vlan 10 20 30 40
+3,配置trunk,使所有交换机之间的链路允许通过任意vlan的数据
+4,为sw1 配置链路聚合g0/0/5与g0/0/6捆绑为聚合1口
+	interface  eth-trunk 1
+	trunkport g 0/0/5 0/0/6
+	port link-type trunk
+	port trunk allow-pass vlan all 
+   为sw2 配置链路聚合g0/0/5与g0/0/6捆绑为聚合1口
+   为sw6 配置链路聚合e0/0/1与e0/0/2捆绑为聚合1口
+	interface  eth-trunk 1
+	trunkport e 0/0/1 0/0/2
+	port link-type trunk
+	port trunk allow-pass vlan all 
+				 e0/0/3与e0/0/4捆绑为聚合2口
+	interface  eth-trunk 2
+	trunkport e 0/0/3 0/0/4
+	port link-type trunk
+	port trunk allow-pass vlan all 
+5,为sw1和sw2添加新vlan 的ip
+    完毕后使用   dis ip interface brief  查看结果
+6,将终端设备所在的接口加入对应的vlan
+	sw3: 
+	in e0/0/3
+	port link-type access
+	port default vlan 10
+	sw4:
+	in e0/0/3
+	port link-type access
+	port default vlan 20
+	.......
+	.......
+测试终端主机是否可以ping通同vlan的252或253
+
+sw1   vlan10  主
+	  vlan20  备
+	  vlan30  主
+interface Vlanif 30
+vrrp vrid 30 virtual-ip 192.168.30.254
+vrrp vrid 30 priority 105
+	  vlan40  备
+interface Vlanif 40
+vrrp vrid 40 virtual-ip 192.168.40.254
+
+sw2   vlan10  备
+	  vlan20  主
+	  vlan30  备
+	  vlan40  主
+dis vrrp brief   查看vrrp状态
+
+7,添加路由器做外网连接
+   首先配置路由器与三层交换机之间的链路ip
+8,配置ospf使全网互通
+sw1 宣告 10 20 30 40 50 70
+sw2 宣告 10 20 30 40 60 80
+r1  宣告 50 60
+r2  宣告 70 80
+最后查看路由表,上述四台设备应该具备全网路由
+dis ip routing-table | include /24     //只查看包含/24的行
+
+8, 添加外网设备(s3700)   在vlan1中配置ip  100.0.0.10 /8
+r1和r2 同时配置  100.0.0.1    100.0.0.2
+并配置通往外网的默认路由
+ip route-static 0.0.0.0 0 100.0.0.10
+然后两台路由器在ospf中发布默认路由
+[Huawei]ospf
+[Huawei-ospf-1]default-route-advertise    //此命令输入完毕后查看s5700的路由表,可以看到默认路由
+
+9,使用acl+nat连接外部网络
+在两台路由器配置:
+acl 2000
+rule permit source any    //定义acl允许任意地址连接外部
+in g0/0/2      //进入外网接口
+nat outbound 2000    //开启nat
+
+
+
+
+

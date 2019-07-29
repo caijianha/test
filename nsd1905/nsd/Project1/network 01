@@ -1,0 +1,127 @@
+微信 qq 
+游戏  看视频  听音乐
+网络的作用
+1,信息传递
+2,资源共享
+3,提高可靠
+4,提高处理性能
+
+服务器1    服务器2    服务器3
+集群 
+60 	    分组交换
+70~80    tcp/ip
+90     web技术
+
+iso  国际标准化组织
+osi参考模型
+
+
+
+
+路由器  华为    思科    360  小米  tp-link ....
+标准,品牌,产品
+企业级
+
+大    WAN  广域网(英特网)     
+小    LAN  局域网      办公室,教室,宿舍,家用,机房    1公里以内
+
+网络拓扑结构
+点对点   应用在广域网
+星形    易于实现,易于扩展,易于故障排查
+网状    高可靠(高可用)
+
+osi  7层
+物理层--数据链路层---网络层---传输层---会话层---表示层---应用层
+tcp/ip
+物理层--数据链路层---网络层---传输层---应用层
+
+密码 : tedu
+
+用户视图 
+系统视图
+
+模块
+子卡
+接口序号
+vrp  通用路由平台
+
+改主机名  [Huawei]sysname SW1
+查看设备信息  [Huawei]display version		
+查看当前配置  [Huawei]display current-configuration 
+
+创建账户,密码并激活
+[Huawei]aaa      //进入aaa认证
+[Huawei-aaa]local-user admin01 password cipher 123    //创建账户叫admin01,密码123       
+[Huawei-aaa]quit
+[Huawei]user-interface console 0    //进入控制台  
+[Huawei-ui-console0]authentication-mode aaa    //激活
+之后可以按  ctrl + ]  退出当前系统测试
+
+<Huawei>save   //保存
+<Huawei>reset saved-configuration     //重置配置文件
+<Huawei>reboot    //重启
+
+应用层		pc
+传输层		防火墙	数据段
+网络层		路由器	数据包
+数据链路层	交换机	数据帧
+物理层		网卡		比特流
+
+交换机是组建网络的基本设备,能够实现不同设备数据共享
+ip  
+mac地址   物理地址   硬件地址
+
+aa:aa:aa:00:00:01
+aaaa:aa00:0001
+aa-aa-aa-00-00-01
+aaaa-aa00-0001
+
+0 1
+00
+01
+10
+11
+100  
+101
+110
+111
+1000
+
+0123456789ABCDEF
+
+10
+
+
+48位(bit)
+
+6字节(byte)
+
+1字节=8位
+
+单播  1对1
+组播  1对多
+广播  1对所有
+
+交换机工作原理
+学习,学习源mac地址,记录对应的接口号
+广播,向除了数据来源之外的所有接口发送信息
+转发,1对1进行数据传递
+更新,超过300秒无任何数据通讯,mac地址记录将被删除
+	接口设备更换,或者接口down掉
+<Huawei>display  mac-address     //查看mac地址表
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

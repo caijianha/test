@@ -1,0 +1,360 @@
+管道操作 ( | )  : 将前面命令的输出,交由后面命令处理,作为后面命令的参数
+
+   显示/etc/passwd的8~12行内容?
+[root@B /]# head -12 /etc/passwd
+[root@B /]# head -12 /etc/passwd  |  tail -5 
+[root@B /]# head -12 /etc/passwd | tail -5 | cat -n
+[root@B /]# cat -n /etc/passwd | head -12 | tail -5
+
+[root@B /]# ifconfig | less
+[root@B /]# ifconfig | head -2
+
+bc计算器
+  +(加)    -(减)   *(乘)    /(除)
+  quit 退出
+
+[root@B /]# echo 1+3 | bc
+4
+[root@B /]# 
+
+
+#####################################################
+用户管理
+     用户帐户: 1.可以登录操作系统   2.不同用户具备不同的权限
+
+     唯一标识:  UID   GID
+
+     组帐号: 基本组(私有组)   附加组(从属组)
+     一个用户至少属于一个组
+[root@B /]# useradd kenji
+[root@B /]# kenji   
+                   基本组:kenji
+                   从属组:caiwu   xs   sg  mn
+
+
+添加用户
+用户基本信息存放在 /etc/passwd 文件
+[root@B /]# head -1 /etc/passwd
+ root:x:0:0:root:/root:/bin/bash
+ 用户名:密码占位符:UID:基本组的GID:用户描述信息:用户家目录:解释器
+
+• 使用 useradd 命令
+– useradd [选项]... 用户名
+• 常用命令选项
+– -u 用户id、-d 家目录路径、-G 附加组、-s 登录解释器
+
+[root@B /]# useradd nsd02      #创建用户
+[root@B /]# id nsd02           #查看用户基本信息
+
+[root@B /]# useradd nsd03
+[root@B /]# id nsd03
+
+[root@B /]# useradd -u 1500 nsd04  #指定UID创建用户
+[root@B /]# id nsd04
+                                                         
+[root@B /]# useradd -d /mnt/nsd06  nsd06  #指定家目录路径
+[root@B /]# ls /mnt/
+[root@B /]# grep nsd06 /etc/passwd
+nsd06:x:1501:1501::/mnt/nsd06:/bin/bash
+用户名:密码占位符:UID:基本组的GID:用户描述信息:用户家目录:解释器
+
+[root@B /]# groupadd tarena         #创建组tarena
+[root@B /]# useradd -G tarena nsd07  #指定附加组(从属组)
+[root@B /]# id nsd07
+
+[root@B /]# useradd -d /mnt/nsd08  nsd08
+[root@B /]# ls /mnt/
+[root@B /]# grep nsd08 /etc/passwd
+
+-s 登录解释器
+
+  /sbin/nologin:禁止用户登录操作系统
+
+[root@B /]# useradd -s /sbin/nologin nsd09
+[root@B /]# grep nsd09 /etc/passwd
+
+[root@B /]# useradd -s /sbin/nologin nsd10
+[root@B /]# grep nsd10 /etc/passwd
+
+###################################################
+设置登录密码
+
+• 使用 passwd 命令
+– passwd  [用户名]
+[root@B /]# passwd  nsd02
+更改用户 nsd02 的密码 。
+新的 密码：                                      #输入新的密码
+无效的密码： 密码少于 8 个字符 
+重新输入新的 密码：                          #重新输入新的密码
+passwd：所有的身份验证令牌已经成功更新。
+[root@B /]#  su  -  nsd02              #临时切换用户身份
+[nsd02@B ~]$ passwd 
+更改用户 nsd02 的密码 。
+为 nsd02 更改 STRESS 密码。
+（当前）UNIX 密码：                         #输入旧的密码
+新的 密码：                                       #输入新的密码
+重新输入新的 密码：                           #重新输入新的密码
+passwd：所有的身份验证令牌已经成功更新。
+[nsd02@B ~]$ exit      #回到root身份
+####################################################
+非交互式设置密码
+  echo '密码'   |    passwd --stdin  用户名
+
+[root@B ~]# echo 123 | passwd --stdin nsd02 
+
+[root@B ~]# echo redhat | passwd --stdin nsd02
+
+[root@B ~]# echo haxi | passwd --stdin nsd02
+
+[root@B ~]# echo 456 | passwd --stdin nsd02
+
+###################################################
+用户密码信息存放在 /etc/shadow 文件
+[root@B ~]# grep nsd11 /etc/shadow
+nsd11:$6$bp0mh0NL$OMp5p2KWMtkOB7dU/Dxwr0lk.m9GbBPjUJJ57Zp6LnkrxDJoa3nOxG
+ferg7Ts3kqHxg7pinfJfdqqdTTbVEQX1:18051:0:99999:7:::
+
+用户名:密码加密字符串:上一次修改密码的时间
+
+上一次修改密码的时间:自1970-1-1到达上一次修改密码的时间经历的天数
+
+#####################################################
+修改用户属性
+• 使用 usermod 命令
+– usermod [选项]... 用户名
+• 常用命令选项
+– -u 用户id、-d 家目录路径、-s 登录解释器
+– -G 附加组     #重置附加组
+
+[root@B ~]# useradd nsd12
+[root@B ~]# grep nsd12 /etc/passwd
+
+[root@B ~]# usermod -u 1600 -d /mnt/nsd12  -s /sbin/nologin -G tarena  nsd12
+
+[root@B ~]# grep nsd12 /etc/passwd
+[root@B ~]# id nsd12
+
+删除用户
+• 使用 userdel 命令
+– userdel [-r] 用户名
+          [-r] :连同家目录一并删除
+ 
+[root@B ~]# userdel -r nsd01
+[root@B ~]# ls /home/
+
+#################################################
+管理组账号
+
+添加组
+组基本信息存放在 /etc/group 文件
+[root@B ~]# grep tedu /etc/group
+tedu:x:1507:
+组名:组密码占位符:组的GID:组的成员列表
+
+• 使用 groupadd 命令
+– groupadd [-g 组ID] 组名                
+
+[root@B ~]# groupadd tedu
+[root@B ~]# grep tedu /etc/group
+tedu:x:1507:
+组名:组密码占位符:组的GID:组的成员列表
+
+[root@B ~]# useradd jack
+[root@B ~]# useradd kaka
+[root@B ~]# useradd haxi
+[root@B ~]# useradd tc
+[root@B ~]# id jack
+[root@B ~]# id tc
+[root@B ~]# id kaka
+[root@B ~]# id haxi
+###################################################
+管理组成员
+• 使用 gpasswd 命令
+– gpasswd -a 用户名  组名
+– gpasswd -d 用户名  组名
+
+[root@B ~]# gpasswd -a jack tedu   #用户jack加入tedu组
+[root@B ~]# grep tedu /etc/group
+
+[root@B ~]# gpasswd -a tc tedu     #用户tc加入tedu组
+[root@B ~]# grep tedu /etc/group
+
+[root@B ~]# gpasswd -a haxi tedu   #用户haxi加入tedu组
+[root@B ~]# grep tedu /etc/group
+
+[root@B ~]# gpasswd -d jack tedu  #用户jack从tedu组中删除
+[root@B ~]# grep tedu /etc/group
+
+[root@B ~]# gpasswd -a kaka tedu
+[root@B ~]# grep tedu /etc/group
+
+[root@B ~]# gpasswd -d tc tedu
+[root@B ~]# grep tedu /etc/group
+
+
+删除组
+• 使用 groupdel 命令
+– groupdel 组名
+[root@B ~]# groupdel tedu
+[root@B ~]# grep tedu /etc/group
+
+#################################################
+案例1:配置用户和组账号
+1.新建用户 alex,其用户ID为3456,密码是flectrag
+[root@B ~]# useradd -u  3456  alex
+[root@B ~]# echo flectrag  |  passwd --stdin alex
+2.一个名为 adminuser 的组
+[root@B ~]# groupadd adminuser
+3.一个名为 natasha的用户,其属于 adminuser组,这个组是该用户的从属组
+[root@B ~]# useradd -G adminuser natasha
+4.一个名为 harry的用户,其属于 adminuser组,这个组是该用户的从属组
+[root@B ~]# useradd -G adminuser harry
+5.一个名为 sarah的用户,其在系统中没有可交互的Shell,并且不是 adminuser 组的成员
+[root@B ~]# useradd -s  /sbin/nologin sarah
+6.natasha、harry、sarah的密码都要设置为 flectrag
+[root@B ~]# echo flectrag  |  passwd --stdin natash
+[root@B ~]# echo flectrag  |  passwd --stdin harry
+[root@B ~]# echo flectrag  |  passwd --stdin sarah
+####################################################
+
+tar备份与恢复
+    1.整合分散数据   2.减小空间的占用
+
+常见的压缩格式及命令工具:
+ .gz --> gzip压缩格式
+ .bz2 --> bzip2压缩格式
+ .xz --> xz压缩格式                       
+
+• tar 集成备份工具
+– -c:创建归档
+– -x:释放归档
+– -f:指定归档文件名称
+– -z、-j、-J:调用 .gz、.bz2、.xz格式的工具进行处理
+– -t:显示归档中的文件清单
+– -C:指定释放路径
+
+打包格式:
+  tar 选项    /路径/压缩包的名字     被压缩的源数据
+
+解包格式:
+  tar 选项    /路径/压缩包的名字    选项    释放的路径
+
+[root@B ~]# rm -rf /opt/*
+[root@B ~]# tar -zcf /opt/file.tar.gz  /home /etc/passwd
+[root@B ~]# ls /opt/
+
+[root@B ~]# tar -jcf /opt/test.tar.bz2 /home/ /etc/passwd
+
+[root@B ~]# ls /opt/
+
+[root@B ~]# tar -Jcf /opt/abc.tar.xz /home/  /etc/passwd
+[root@B ~]# ls /opt/
+
+[root@B ~]# tar -zcf /opt/bh.tar.gz /boot  /home
+[root@B ~]# ls /opt/
+
+
+[root@B ~]# tar -xf /opt/file.tar.gz -C /mnt/
+[root@B ~]# ls /mnt/
+
+[root@B ~]# ls /mnt/etc/
+[root@B ~]# ls /mnt/home/
+
+[root@B ~]# mkdir /nsd19
+[root@B ~]# tar -xf /opt/abc.tar.xz -C /nsd19
+[root@B ~]# ls /nsd19
+
+###################################################
+查看tar包内容
+[root@B ~]# tar -tf /opt/test.tar.bz2 
+[root@B ~]# tar -tf /opt/test.tar.bz2 | less
+
+案例2:创建一个备份包
+使用 tar 工具完成以下备份任务:
+– 创建一个名为 /root/backup.tar.bz2 的归档文件
+– 其中包含 /usr/local目录中的内容
+– tar 归档必须使用 bzip2 进行压缩
+
+[root@B ~]# tar -jcf /root/backup.tar.bz2 /usr/local/
+
+[root@B ~]# ls /root/
+[root@B ~]# tar -tf /root/backup.tar.bz2
+
+###################################################
+查看日期时间命令: date               
+[root@B ~]# date
+2019年 06月 04日 星期二 15:49:20 CST
+
+[root@B ~]# date -s  '年-月-日     时:分:秒'
+
+[root@B ~]# date -s  '2008-10-1   12:10:03'
+[root@B ~]# date
+
+[root@B ~]# date -s  '2019-6-4   15:55:03'
+[root@B ~]# date
+
+####################################################
+cron任务概述
+• 用途:按照设置的时间间隔为用户反复执行某一项固定的系统任务
+
+• 日志文件:/var/log/crond
+
+
+• 使用 crontab 命令
+– 编辑:crontab -e [-u 用户名]
+– 查看:crontab -l [-u 用户名]
+– 清除:crontab -r [-u 用户名]
+
+如何编写crontab任务记录
+  分  时   日   月  周      任务命令行(绝对路径)
+
+  *    *    *    *   *
+  30   8    *    *   *           #每天早上8:30执行
+  30   23   *   *   *          #每天晚上11:30执行
+  30   23   *    *   5         #每周的周五晚上11:30执行
+  30   23   1   *   5           #每周的周五或每月1号晚上11:30执行
+  30   23   *   *   1-5          #每周的周一至周五晚上11:30执行
+  30   23   *   *   1,3,7        #每周的周一  周三 周日晚上11:30执行
+  0   */2   *   *   *             #每隔两个小时
+
+   *:匹配范围内任意时间
+   ,:分隔多个不连续的时间点
+   -:指定连续时间范围
+  /n:指定时间频率,每n .. 
+
+  每分钟记录当前的系统时间,写入到/opt/time.txt  
+[root@B ~]# date
+[root@B ~]# date >> /opt/time.txt
+[root@B ~]# cat /opt/time.txt
+
+[root@B ~]# crontab -e  -u root      #书写计划任务
+*/1 * * * *   date >> /opt/time.txt
+
+[root@B ~]# crontab -l -u root       #查看root计划任务
+*/1 * * * *   date >> /opt/time.txt
+
+[root@B ~]# cat /opt/time.txt 
+
+###################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

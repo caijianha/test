@@ -1,0 +1,78 @@
+案例练习,准备:
+            rht-vmctl  reset  classroom
+            rht-vmctl  reset  server
+	    rht-vmctl  reset  desktop
+######################################################
+
+
+
+案例1:指定yum软件源
+为 server0 指定可用的 yum 软件源
+– YUM软件库的地址为 http://classroom.example.com/content/rhel7.0/x86_64/dvd
+– 将此配置为虚拟机 server0 的默认软件仓库
+– 确认可用的仓库列表
+– 利用yum仓库安装httpd与vsftpd
+– 利用rpm命令检测是否安装成功
+
+
+案例2：虚拟机Server上操作
+  1. 新建目录结构/nsd19/test
+  2. 在目录/nsd19/test创建文件19.txt并写入内容 NSD  Student
+  3. 将/nsd19/test/19.txt文件复制到/root目录下，同时 改名为 tedu.txt
+  4. 将/etc/passwd 、/etc/resolv.conf、/etc/hosts 同时拷贝到/nsd19/test/目录下
+  5. 将文件 /nsd19/test/hosts 重改名为 hs.txt 
+  6. 创建目录结构/boot/kernel
+  7. 将目录 /boot内容中以 vm 开头的数据, 复制到/boot/kernel目录下 
+
+
+案例5:虚拟机 server0上操作，查找并处理文件
+ – 创建目录/root/findfiles/
+ – 利用find查找所有用户 student 拥有的必须是文件,把它们拷贝到 /root/findfiles/ 文件夹中
+ – 利用find查找/boot目录下大于10M并且必须是文件，拷贝到/opt
+ – 利用find查找/boot/ 目录下以 vm 开头且必须是文件，拷贝到/opt
+ – 利用find查找/boot/ 目录下为快捷方式
+ – 利用find查找/etc 目录下，以 tab 作为结尾的 必须是文件
+
+
+
+案例6:虚拟机 server0上操作,查找并提取文件内容
+    1.在文件 /usr/share/dict/words 中查找到所有包含字符串 seismic 的行,将输出信息,写入到/opt/nsd18.txt
+    2.查看内核版本，将显示结果重定向到/root/version.txt
+    3.查看红帽系统版本，将显示结果追加到/root/version.txt
+    4.查看主机名将显示结果追加到/root/version.txt
+    5.将/etc/fstab文件中以UUID开头的信息，写入到/root/fstab.txt
+    6.提取/etc/passwd以bash结尾的行，将其信息写入/opt/pass.txt
+    7.复制/etc/login.defs文件到当前目录下，改名为init.txt
+    8.提取init.txt文件里的有效配置（去除以#号开头，去除空行），保存为init2.txt
+
+案例7:在server上操作,（MBR分区模式）规划分区
+ 添加一块60G的硬盘并规划分区：
+   划分2个10G的主分区；1个12G的主分区;1个10G的逻辑分区。
+   
+
+
+案例6:虚拟机 server0操作，构建 LVM 存储
+
+– 新建一个名为 systemvg 的卷组 
+– 在此卷组中创建一个名为 vo 的逻辑卷，大小为8G 
+– 将逻辑卷 vo 格式化为 xfs 文件系统 
+– 将逻辑卷 vo 挂载到 /vo 目录，并在此目录下建立一个测试文件 votest.txt，内容为“I AM KING.” 
+– 实现逻辑卷vo开机自动挂载到/vo
+
+
+
+案例7:虚拟机 server0操作，构建 LVM 存储(修改PE大小)
+– 新的逻辑卷命名为 database，其大小为50个PE的大小，属于 datastore 卷组 
+– 在 datastore 卷组中其PE的大小为1M
+– 使用 EXT4 文件系统对逻辑卷 database 格式化，此逻辑卷应该在开机时自动挂载到 /mnt/database 目录
+ 
+
+案例8:虚拟机 server0操作，扩展逻辑卷
+
+– 将/dev/systemvg/vo逻辑卷的大小扩展到20G
+
+
+
+
+
+

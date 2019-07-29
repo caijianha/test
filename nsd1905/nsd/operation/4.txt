@@ -1,0 +1,188 @@
+ 案例1： PHP的本地Session信息
+部署Nginx为前台调度服务器
+调度算法设置为轮询
+后端为两台LNMP服务器
+部署测试页面，查看PHP本地的Session信息
+
+Session：存储在服务器端，保存用户名、登陆状态等信息。
+Cookies：由服务器下发给客户端，保存在客户端的一个文件里。
+保存的内容主要包括：SessionID。
+
+部署后端LNMP服务器相关软件
+[root@web2 ~]# yum -y install gcc openssl-devel pcre-devel
+[root@web2 ~]# tar -xf nginx-1.12.2.tar.gz
+[root@web2 ~]# cd nginx-1.12.2
+[root@web2 nginx-1.12.2]#  ./configure   \
+> --with-http_ssl_module 
+[root@web2 nginx-1.12.2]# make && make install
+     yum -y install  mariadb  mariadb-server  mariadb-devel
+[root@web2 ~]# yum -y install  php  php-mysql
+[root@web2 ~]# yum -y install  php-fpm
+
+ vim /usr/local/nginx/conf/nginx.conf
+location / {
+            root   html;
+            index  index.php  index.html   index.htm;
+        }
+ location  ~  \.php$  {
+            root           html;
+            fastcgi_pass   127.0.0.1:9000;
+            fastcgi_index  index.php;
+           # fastcgi_param   SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+            include        fastcgi.conf;
+        }
+
+netstat -utnlp | grep :80
+
+部署前端Nginx调度服务器
+
+vim /usr/local/nginx/conf/nginx.conf
+.. ..
+upstream webs  {
+        server 192.168.2.100:80;
+        server 192.168.2.200:80;
+  }
+ server  {
+          listen       80;
+          server_name  localhost;
+          location  /  {
+              proxy_pass http://webs;
+            root   html;
+            index  index.php index.html index.htm;
+          }
+}
+
+
+[root@web1 ~]# cd /var/lib/php/session/       //查看服务器本地的Session信息
+[root@web1 ~]# ls
+sess_ahilcq9bguot0vqsjtd84k7244                    //注意这里的ID是随机的
+[root@web1 ~]# cat sess_ahilcq9bguot0vqsjtd84k7244
+
+浏览器访问前端调度器测试（不同后端服务器Session不一致）。
+推荐使用google浏览器测试。
+
+############################################################################
+案例2：构建memcached服务
+
+ched软件，并启动服务
+使用telnet测试memcached服务
+对memcached进行增、删、改、查等操作
+
+yum -y  install   memcached
+
+ memcached配置文件（查看即可，不需要修改）
+vim /usr/lib/systemd/system/memcached.service
+
+vim /etc/sysconfig/memcached
+
+在RHEL7系统中，使用ss命令可以替代netstat，功能与选项一样。
+-a显示所有端口的信息
+-n以数字格式显示端口号
+-t显示TCP连接的端口
+-u显示UDP连接的端口
+-l显示服务正在监听的端口信息，如httpd启动后，会一直监听80端口
+-p显示监听端口的服务名称是什么（也就是程序名称）
+
+使用telnet访问memcached服务器
+yum -y install telnet
+telnet  192.168.4.5  11211
+
+add name 0 180 10	//变量不存在则添加
+set name 0 180 10	//添加或替换变量
+replace name 0 180 10	//替换
+get name	//读取变量
+append name 0 180 10	//向变量中追加数据
+delete name	//删除变量
+flush_all	//清空所有
+提示：0表示不压缩，180为数据缓存时间，10为需要存储的数据字节数量。
+
+set name 0 180 3                //定义变量，变量名称为name
+plj                            //输入变量的值，值为plj                
+STORED
+get name                        //获取变量的值
+VALUE name 0 3                 //输出结果
+plj
+END
+##提示：0表示不压缩，180为数据缓存时间，3为需要存储的数据字节数量。
+
+3：LNMP+memcached
+
+创建PHP页面，使用PHP语言测试memcached服务
+cp lnmp_soft/php_scripts/mem.php /usr/local/nginx/html/
+
+客户端测试（结果会失败）
+为PHP添加memcache扩展
+
+ yum -y install  php-pecl-memcache
+
+客户端再次测试（结果会成功显示数据结果）
+
+4：PHP实现session共享
+
+修改PHP-FPM配置文件，并重启服务
+
+vim  /etc/php-fpm.d/www.conf            //修改该配置文件的两个参数
+//文件的最后2行
+修改前效果如下:
+php_value[session.save_handler] = files
+php_value[session.save_path] = /var/lib/php/session
+//原始文件，默认定义Sessoin会话信息本地计算机（默认在/var/lib/php/session）
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+修改后效果如下:
+php_value[session.save_handler] = memcache
+php_value[session.save_path] = "tcp://192.168.2.5:11211"
+//定义Session信息存储在公共的memcached服务器上，主机参数中为memcache（没有d）
+//通过path参数定义公共的memcached服务器在哪（服务器的IP和端口）
+[root@web1 ~]# systemctl  restart  php-fpm
+
+客户端测试
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

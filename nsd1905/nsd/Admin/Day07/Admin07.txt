@@ -1,0 +1,568 @@
+###################################################
+在server上操作,（MBR分区模式）规划分区
+添加一块80G的硬盘并规划分区：
+   划分2个10G的主分区；1个12G的主分区;2个逻辑分区分别为10G
+[root@server0 ~]# fdisk  /dev/vdc
+   n 创建主分区----->回车----->回车---->回车----->在last结束时 +10G
+         连续划分三个主分区
+   p 查看分区表
+   n 创建扩展分区 
+          ----->回车---->起始回车----->结束回车   将所有空间给扩展分区
+   p 查看分区表
+   n 创建逻辑分区----->起始回车------>结束+10G
+   n 创建逻辑分区----->起始回车------>结束+10G
+   p 查看分区表
+   w 保存并退出
+[root@server0 ~]# lsblk 
+[root@server0 ~]# ls /dev/vdc[1-6]
+#####################################################
+逻辑卷
+
+     1.整合分散空间      2.空间可以扩展
+
+LVM工作方式
+• 在“分区 --> 格式化”中间增加的一个逻辑层
+– 零散空闲存储 ---- 整合的虚拟磁盘 ---- 虚拟的分区
+
+  将众多的PV(物理卷)组成VG(卷组),再从VG(卷组)中划分LV(逻辑卷)
+#####################################################
+一 制作逻辑卷                                              
+1.创建卷组
+  命令格式:  vgcreate  卷组名     分区路径.......
+[root@server0 ~]# vgcreate  systemvg  /dev/vdc[1-2]
+
+[root@server0 ~]# vgs     #查看卷组基本信息
+[root@server0 ~]# pvs  　 #查看物理卷基本信息
+
+	功能 			物理卷管理 	卷组管理 		逻辑卷管理
+	Scan扫描	 	pvscan 		vgscan 		lvscan
+	Create创建 	pvcreate 	vgcreate 	lvcreate
+	Display显示 	pvdisplay 	vgdisplay 	lvdisplay
+	Remove删除 	pvremove 	vgremove 	lvremove
+	Extend扩展 	/ 			vgextend 	lvextend
+
+2.创建逻辑卷
+   命令格式: lvcreate -n 逻辑卷名   -L 大小   基于的卷组名
+
+[root@server0 ~]# lvcreate -n mylv -L 16G  systemvg 
+[root@server0 ~]# lvs    #查看逻辑卷的信息
+[root@server0 ~]# vgs
+
+3.逻辑卷的使用
+[root@server0 ~]# ls /dev/systemvg/mylv 
+[root@server0 ~]# ls -l /dev/systemvg/mylv 
+
+]# mkfs.xfs  /dev/systemvg/mylv
+]# blkid /dev/systemvg/mylv     #查看文件系统类型
+
+[root@server0 ~]# vim /etc/fstab 
+/dev/systemvg/mylv   /lv    xfs   defaults  0  0 
+
+[root@server0 ~]# mkdir /lv
+[root@server0 ~]# mount  -a
+[root@server0 ~]# df  -h
+####################################################
+二  逻辑卷的线上扩展
+
+1.卷组有足够的剩余空间
+    1)扩展逻辑卷空间
+[root@server0 ~]# lvextend -L 18G /dev/systemvg/mylv  
+[root@server0 ~]# lvs
+
+    2)扩展文件系统大小(刷新文件系统)
+    resize2fs:扩展ext4文件系统
+    xfs_growfs:扩展xfs文件系统
+
+[root@server0 ~]# df -h	
+[root@server0 ~]# xfs_growfs  /dev/systemvg/mylv 
+[root@server0 ~]# df -h
+
+2.卷组没有足够的剩余空间                        
+    1)扩展卷组空间
+[root@server0 ~]# vgextend systemvg /dev/vdc3
+[root@server0 ~]# vgs
+
+[root@server0 ~]# vgextend systemvg /dev/vdb
+[root@server0 ~]# vgs
+    2)扩展逻辑卷空间
+[root@server0 ~]# lvextend -L 25G /dev/systemvg/mylv  
+[root@server0 ~]# lvs
+    3)扩展文件系统大小(刷新文件系统)
+[root@server0 ~]# df -h	
+[root@server0 ~]# xfs_growfs  /dev/systemvg/mylv 
+[root@server0 ~]# df -h
+
+####################################################
+了解:逻辑卷也可以缩小: 
+     ext4文件系统支持缩减
+     xfs文件系统不支持缩减
+
+卷组划分空间的单位:PE      默认1PE=4M
+
+[root@server0 ~]# vgdisplay systemvg   #查看卷组详细信息
+ PE Size               4.00 MiB
+
+请划分一个大小为250M的逻辑卷lvredhat
+
+[root@server0 ~]# vgchange -s 1M systemvg  #修改PE的大小
+[root@server0 ~]# vgdisplay systemvg  #查看卷组详细信息
+
+[root@server0 ~]# lvcreate -L 250M -n lvredhat systemvg 
+[root@server0 ~]# lvs
+
+请划分一个大小为678个PE组成的逻辑卷lvtest
+[root@server0 ~]# lvcreate -l 678 -n lvtest01 systemvg
+[root@server0 ~]# lvs
+
+   -l:指定PE的个数
+
+####################################################
+逻辑卷的删除
+顺序:先删除逻辑卷,然后再删除卷组,最后删除物理卷
+[root@server0 ~]# lvremove /dev/systemvg/mylv 
+  Logical volume systemvg/mylv contains a filesystem in use.
+[root@server0 ~]# umount /lv
+[root@server0 ~]# lvremove /dev/systemvg/mylv 
+Do you really want to remove active logical volume mylv? [y/n]: y
+  Logical volume "mylv" successfully removed
+[root@server0 ~]# lvs
+
+[root@server0 ~]# lvremove /dev/systemvg/lvtest01
+Do you really want to remove active logical volume lvtest01? [y/n]: y
+  Logical volume "lvtest01" successfully removed
+[root@server0 ~]# lvs
+
+
+[root@server0 ~]# vgremove systemvg 
+  Volume group "systemvg" successfully removed
+[root@server0 ~]# vgs
+  No volume groups found
+[root@server0 ~]# 
+###################################################
+grep文件内容过滤:显示文件有效信息(去除注释信息,去除空行)
+
+注释信息:大多数配置文件中以#开头
+
+匹配空行:^$
+
+]# grep -v ^# /etc/login.defs  #去除注释
+]# grep -v ^# /etc/login.defs |   grep  -v  ^$
+
+]# cat /etc/default/useradd
+]# grep -v ^# /etc/default/useradd  #去除注释
+]# grep -v ^$ /etc/default/useradd  #去除空行 
+
+将文件/etc/login.defs有效信息写入/opt/log.txt
+]# grep -v ^# /etc/login.defs | grep   -v ^$  >  /opt/log.txt
+
+]# cat /opt/log.txt
+
+###################################################
+查找文件
+• 根据预设的条件递归查找对应的文件                       15:05上课
+– find [目录] [条件1] [-a|-o] [条件2] ...
+– 常用条件表示:
+	-type 类型(f 文本文件、d 目录、l 快捷方式)
+	-name "文档名称"
+	-size +|-文件大小(k、M、G)
+	-user 用户名
+	-mtime 根据文件修改时间
+
+按照类型进行查找:
+[root@server0 ~]# find /boot/  -type l    #查看是快捷方式
+[root@server0 ~]# ls /boot/grub/menu.lst 
+[root@server0 ~]# ls -l /boot/grub/menu.lst
+
+[root@server0 ~]# find /boot/  -type d  #查看是目录
+
+[root@server0 ~]# find /boot/  -type f  #查看是文件
+
+[root@server0 ~]# find /root  -type d    #查看是目录
+
+[root@server0 ~]# find /root  -type f   #查看是文件
+
+安装名字进行查找:
+	-name  "文档名称"
+[root@server0 ~]# find /etc/  -name  "passwd"
+
+[root@server0 ~]# find /etc/  -name   "*tab"
+[root@server0 ~]# find /etc/  -name   "*.conf"
+[root@server0 ~]# find /etc/  -name   "*tab*"
+
+[root@server0 ~]# touch  /root/nsd01.txt
+[root@server0 ~]# touch  /root/nsd02.txt
+[root@server0 ~]# mkdir  /root/nsd1905
+[root@server0 ~]# find  /root/  -name "nsd*"
+
+[root@server0 ~]# find /root/  -name "nsd*"  -type f 
+[root@server0 ~]# find /root/  -name "nsd*"  -type d 
+
+[root@server0 ~]# find /root/  -name "nsd*" -o -type  d
+####################################################
+按照大小进行查找:-size +|-文件大小(k、M、G)
+[root@server0 ~]# find /boot/ -size +10M
+[root@server0 ~]# find /boot/ -size +300k
+
+按照文档的所有者:-user 用户名
+[root@server0 ~]# find /home/ -user student
+[root@server0 ~]# ls -l /home/
+
+[root@server0 ~]# find /  -user student
+
+###################################################
+	-mtime 根据文件修改时间(都是过去时间)
+	-mtime +10  :10天之前修改过的文档
+	-mtime -10  :最近10天之内修改过的文档
+
+ 三个月以前的数据:  -mtime +90 
+[root@server0 ~]# find /var/  -mtime +90
+[root@server0 ~]# ls -ld /var/gdm
+
+[root@server0 ~]# date
+[root@server0 ~]# ls -l /var/log/yum.log
+
+[root@server0 ~]# find  /var/  -mtime +1000
+
+##################################################
+find的高级使用
+– find .. .. -exec 处理命令  {}  \;
+– 优势:以 {} 代替每一个结果,逐个处理,遇 \; 结束
+
+]# find /boot/ -size +10M
+]# find /boot/ -size +10M   -exec  cp  {}  /opt  \;
+]# ls /opt/
+
+]# find / -user student -type f  
+]# find / -user student -type f  -exec cp {}  /mnt  \;
+]# ls -A /mnt/
+
+]# find /root -name "nsd*"   
+]# find /root -name "nsd*"   -exec cp -r  {}  /mnt  \;
+]# ls -A /mnt/
+
+案例4:查找并处理文件
+• 使用find命令完成以下任务
+– 找出所有用户 student 拥有的文件
+– 把它们拷贝到/root/findfiles文件夹中
+
+]# mkdir /root/findfiles
+]# find /  -user student  -type f 
+]# find /  -user student  -type f  -exec cp {}  /root/findfiles  \;
+
+]# ls -A /root/findfiles
+
+#####################################################
+
+NTP网络时间协议
+• Network Time Protocol
+– NTP服务器为客户机提供标准时间
+– NTP客户机需要与NTP服务器保持沟通
+
+NTP服务器:虚拟机classroom
+NTP客户机:虚拟机server
+1.安装chrony软件包,与NTP服务器沟通
+[root@server0 ~]# yum -y install chrony  
+[root@server0 ~]# rpm -q chrony
+
+2.修改配置文件
+[root@server0 ~]# vim /etc/chrony.conf 
+ #server 0.rhel.pool.ntp.org iburst
+ #server 1.rhel.pool.ntp.org iburst
+ #server 2.rhel.pool.ntp.org iburst
+ server  classroom.example.com  iburst
+
+3.重启程序(重启服务)
+[root@server0 ~]# systemctl restart chronyd
+[root@server0 ~]# systemctl enable chronyd  #开机自启动
+	daemon
+	英 [ˈdiːmən] 美 [ˈdiːmən]
+        (古希腊神话中的)半神半人精灵,守护进程 
+
+4.验证:
+[root@server0 ~]# date
+[root@server0 ~]# date -s '2008-10-1  10:10:10'
+[root@server0 ~]# date
+[root@server0 ~]# systemctl restart chronyd
+[root@server0 ~]# date
+[root@server0 ~]# date
+[root@server0 ~]# date
+
+##################################################
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

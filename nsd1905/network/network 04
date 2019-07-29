@@ -1,0 +1,165 @@
+直连路由,静态路由,动态路由,默认路由
+传输层
+tcp
+可靠,面向链接   
+效率低
+
+syn  ack   fin
+
+21  22  23  25(smtp)  53  110 (pop3) 80  443  3306
+
+
+三次握手
+syn---ack,syn---ack
+
+四次挥手(断开)
+fin---ack---fin---ack
+
+udp
+不可靠
+效率高
+
+69  123 ntp
+
+acl
+基本 2000~2999   源ip
+高级 3000~3999   源ip  目的ip  端口   协议
+
+192.168.1.1	221.16.8.15		      	220.5.40.55   192.168.1.1
+
+500   221.16.8.16
+50000    221.16.8.15  221.16.8.17
+
+nat  地址转换,将内部与外部地址进行转换,实现内外网互通
+169.254.xxx.xxx   无效的临时地址,选择DHCP方式获取ip,却没有找到DHCP服务器时出现
+
+a 1~127
+b 128~191
+c 192~223
+内部私有地址
+a 10.0.0.0 ~ 10.255.255.255
+b 172.16.0.0~172.31.255.255
+c 192.168.0.0~192.168.255.255
+
+221.16.8.15
+
+ipv4地址长度32位, 42亿
+ipv6地址长度128位
+
+静态nat   主要在服务器连接外部网络时使用, 1对1转换
+easy ip  用在仅需要由内到外的访问 ,1对多转换
+
+192.168.2.1      100.0.0.XX
+
+配置静态nat实现内网设备与外网互通
+[Huawei]interface GigabitEthernet 0/0/1  //进入路由器的外网接口
+[Huawei-GigabitEthernet0/0/1] ip address  100.0.0.1 8
+[Huawei-GigabitEthernet0/0/1]nat static global 100.0.0.2 inside 192.168.2.1    //配置静态nat将2.1与100.0.0.2进行转换
+
+[Huawei-GigabitEthernet0/0/1]nat static global 100.0.0.3 inside 192.168.2.2    //配置静态nat将2.2与100.0.0.3进行转换
+
+外部设备访问内网的2.1时只要连接100.0.0.2即可
+
+easy ip配置步骤:
+1,定义允许访问外部网络的设备
+	利用acl定义
+2,在接口开启nat(easy ip)
+
+[Huawei]acl 2000	
+[Huawei-acl-basic-2000]rule permit source any     //使用acl定义任何内部地址都可以访问外网
+[Huawei]interface g0/0/0   //进入外网接口
+[Huawei-GigabitEthernet0/0/0]nat outbound 2000    //可以利用g0/0/0的ip访问外网,此处配置的是easy ip
+
+学习 广播 转发 更新
+广播风暴
+stp 生成树协议
+
+vrrp  虚拟路由冗余协议 , 用来做网关备份,增加网络可靠
+路由器配置ospf:
+[Huawei]ospf	
+[Huawei-ospf-1]area 0
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.2.0 0.0.0.255
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.3.0 0.0.0.255
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.4.0 0.0.0.255
+三层交换机sw1
+[Huawei]ospf	
+[Huawei-ospf-1]area 0
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.1.0 0.0.0.255
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.2.0 0.0.0.255
+三层交换机sw2
+[Huawei]ospf	
+[Huawei-ospf-1]area 0	  //在此处还可以用dis th检查配置
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.1.0 0.0.0.255
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.3.0 0.0.0.255
+ 	display ip interface brief     //查ip,可以先按ctrl+z
+	display ip routing-table	   //查看路由表
+	
+两台三层交换机同时配置vrrp协议
+[Huawei]interface Vlanif 1
+[Huawei-Vlanif1]vrrp vrid 1 virtual-ip 192.168.1.254
+
+display vrrp brief    //查看vrrp状态
+
+master  主
+backup  备份
+
+把192.168.1.1的网关改成1.254, 并测试是否全网互通
+
+vrrp实现负载均衡
+1, 创建所需vlan    vlan10  vlan20
+2,所有交换机之间的链路配置trunk
+display   vlan     //查vlan
+display   cur		//查接口配置,按空格翻页
+3,为s5700配置vlan10和20的ip地址
+sw1
+in vlan 10
+ip add 192.168.10.252 24
+in vlan 20
+ip add 192.168.20.252 24
+sw2
+in vlan 10
+ip add 192.168.10.253 24
+in vlan 20
+ip add 192.168.20.253 24
+
+display ip interface brief   //查ip
+
+sw1
+vlan 10  主
+vlan 20  备
+in vlan 10
+vrrp vrid 10 virtual-ip 192.168.10.254
+vrrp vrid 10 priority 105
+in vlan 20
+vrrp vrid 20 virtual-ip 192.168.20.254
+
+100  100
+
+display vrrp brief   //查看vrrp状态
+sw2
+vlan 10  备
+vlan 20  主
+in vlan 10
+vrrp vrid 10 virtual-ip 192.168.10.254
+in vlan 20
+vrrp vrid 20 virtual-ip 192.168.20.254
+vrrp vrid 20 priority 105
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

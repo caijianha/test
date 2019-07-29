@@ -1,1 +1,172 @@
+	1 案例1：块存储应用案例
+延续Day03的实验内容，演示块存储在KVM虚拟化中的应用案例，实现以下功能：
+Ceph创建块存储镜像
+客户端安装部署ceph软件
+客户端部署虚拟机
+客户端创建secret
+设置虚拟机配置文件，调用ceph存储
+
+1）创建磁盘镜像。
+[root@node1 ~]# rbd create vm1-image --image-feature  layering --size 10G
+[root@node1 ~]# rbd  list
+[root@node1 ~]# rbd  info  vm1-image
+
+2）Ceph认证账户（仅查看即可）。
+Ceph默认开启用户认证，客户端需要账户才可以访问，默认账户名称为client.admin，key是账户的密钥。
+可以使用ceph auth添加新账户（案例我们使用默认账户）。
+
+[root@node1 ~]# cat /etc/ceph/ceph.conf                    //配置文件 
+[global]
+mon_initial_members = node1, node2, node3
+mon_host = 192.168.2.10,192.168.2.20,192.168.2.30
+auth_cluster_required = cephx                                //开启认证
+auth_service_required = cephx                                //开启认证
+auth_client_required = cephx                                //开启认证
+[root@node1 ~]# cat /etc/ceph/ceph.client.admin.keyring        //账户文件
+[client.admin]
+    key = AQBTsdRapUxBKRAANXtteNUyoEmQHveb75bISg==
+
+3）创建KVM虚拟机（注意：这里使用真实机当客户端！！！）。
+使用virt-manager创建2台普通的KVM虚拟机。
+
+4）配置libvirt secret（注意：这里使用真实机当客户端！！！）。
+
+编写账户信息文件，让KVM知道ceph的账户名称。
+[root@room9pc01 ~]# vim secret.xml            //新建临时文件，内容如下 
+<secret ephemeral='no' private='no'>
+        <usage type='ceph'>
+                <name>client.admin secret</name>
+        </usage>
+</secret>
+#使用XML配置文件创建secret
+[root@room9pc01 ~]# virsh secret-define secret.xml
+733f0fd1-e3d6-4c25-a69f-6681fc19802b       
+//随机的UUID，这个UUID对应的有账户信息
+
+给secret绑定admin账户的密码，密码参考ceph.client.admin.keyring文件。
+[root@room9pc01] virsh secret-set-value \
+--secret 733f0fd1-e3d6-4c25-a69f-6681fc19802b \
+--base64 AQBTsdRapUxBKRAANXtteNUyoEmQHveb75bISg
+//这里secret后面是之前创建的secret的UUID
+//base64后面是client.admin账户的密码
+//现在secret中既有账户信息又有密钥信息
+
+6）虚拟机的XML配置文件。
+每个虚拟机都会有一个XML配置文件，包括：
+虚拟机的名称、内存、CPU、磁盘、网卡等信息。
+
+不推荐直接使用vim修改配置文件，推荐使用virsh edit修改配置文件，效果如下：
+[root@room9pc01] virsh edit vm1                //vm1为虚拟机名称
+<disk type='network' device='disk'>
+      <driver name='qemu' type='raw'/>
+      <auth username='admin'> 
+      <secret type='ceph' uuid='733f0fd1-e3d6-4c25-a69f-6681fc19802b'/>  //uuid设置第四步生成的
+      </auth>
+      <source protocol='rbd' name='rbd/vm1-image'>    //vm1-image是创建的磁盘镜像
+        <host name='192.168.4.11' port='6789'/>     </source>
+    <target dev='vda' bus='virtio'/>     //vda是客户端生成磁盘的名字 切忌名字重复
+ </disk>
+
+ #直接把这一段复制黏贴进去 不要改原文件 
+
+  客户端关机开机测试
+
+###############################################################################
+
+	2 案例2：Ceph文件系统
+
+延续前面的实验，实现Ceph文件系统的功能。具体实现有以下功能：
+部署MDSs节点
+创建Ceph文件系统
+客户端挂载文件系统
+
+创建存储池
+ ceph osd pool create cephfs_data 128
+//创建存储池，对应128个PG
+
+ceph osd pool create cephfs_metadata 128
+//创建存储池，对应128个PG
+
+5）创建Ceph文件系统
+
+ ceph mds stat                     //查看mds状态
+e2:, 1 up:standby
+
+ceph fs new myfs1 cephfs_metadata cephfs_data
+new fs with metadata pool 2 and data pool 1
+//注意，先写medadata池，再写data池
+//默认，只能创建1个文件系统，多余的会报错
+
+ceph fs ls
+name: myfs1, metadata pool: cephfs_metadata, data pools: [cephfs_data ]
+
+ceph mds stat
+e4: 1/1/1 up {0=node4=up:creating}
+
+6）客户端挂载
+
+mount -t ceph 192.168.4.11:6789:/  /mnt/cephfs/ \
+-o name=admin,secret=AQBTsdRapUxBKRAANXtteNUyoEmQHveb75bISg==
+//注意:文件系统类型为ceph
+//192.168.4.11为MON节点的IP（不是MDS节点）
+//admin是用户名,secret是密钥
+//密钥可以在/etc/ceph/ceph.client.admin.keyring中找到	
+
+###############################################################################
+
+	3 案例3：创建对象存储服务器
+延续前面的实验，实现Ceph对象存储的功能。具体实现有以下功能：
+安装部署Rados Gateway
+启动RGW服务
+设置RGW的前端服务与端口
+客户端测试
+
+  步骤一：部署对象存储服务器
+1）准备实验环境，要求如下：
+IP地址:192.168.4.15
+主机名:node5
+配置yum源（包括rhel、ceph的源）
+与Client主机同步时间
+node1允许无密码远程node5
+修改node1的/etc/hosts，并同步到所有node主机
+
+2）部署RGW软件包
+[root@node1 ~]# ceph-deploy install --rgw node5
+同步配置文件与密钥到node5
+同步配置文件与密钥到node5
+[root@node1 ~]# cd /root/ceph-cluster
+[root@node1 ~]# ceph-deploy admin node5
+
+3）新建网关实例
+启动一个rgw服务
+[root@node1 ~]# ceph-deploy rgw create node5
+
+登陆node5验证服务是否启动
+[root@node5 ~]# ps aux |grep radosgw
+ceph      4109  0.2  1.4 2289196 14972 ?       Ssl  22:53   0:00 /usr/bin/radosgw -f --cluster ceph --name client.rgw.node4 --setuser ceph --setgroup ceph
+[root@node5 ~]# systemctl  status ceph-radosgw@\*
+
+4）修改服务端口
+登陆node5，RGW默认服务端口为7480，修改为8000或80更方便客户端记忆和使用
+[root@node5 ~]#  vim  /etc/ceph/ceph.conf
+[client.rgw.node5]
+host = node5
+rgw_frontends = "civetweb port=8000"
+//node5为主机名
+//civetweb是RGW内置的一个web服务
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

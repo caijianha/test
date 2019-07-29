@@ -1,0 +1,152 @@
+192.168.1.0    网络id
+255.255.255.0
+网络位           主机位
+
+路由表
+direct  直连路由,由设备接口配置好ip并开启后自动生成
+static  静态路由,由管理员手工配置
+
+前往AR1配置静态路由,使其可到达192.168.4.0网段
+首先display ip routing-table 查看路由表
+然后使用  ip route-static 192.168.4.0 24 192.168.2.2 添加静态路由
+
+* 如果拓扑丢失,在2008中打开文件夹在地址栏使用ftp://192.168.4.254获取 , 右键单击登录使用student账号
+    /home/student
+
+交换机  数据帧转发
+路由器  不同网段的路由转发
+
+三层交换机=交换机+路由器
+
+网络层   路由器
+数据链路层  交换机
+
+
+[Huawei]interface Vlanif 1    //进入虚拟接口vlan1
+[Huawei-Vlanif1]ip address 192.168.1.254 24
+[Huawei]interface Vlanif 2
+[Huawei-Vlanif1]ip address 192.168.2.254 24
+[Huawei]interface Vlanif 3
+[Huawei-Vlanif1]ip address 192.168.3.254 24
+
+[Huawei]interface g0/0/2      //将2口加入vlan2
+[Huawei-GigabitEthernet0/0/2] port link-type access
+[Huawei-GigabitEthernet0/0/2] port default vlan 2
+
+[Huawei]interface g0/0/3
+[Huawei-GigabitEthernet0/0/3] port link-type access
+[Huawei-GigabitEthernet0/0/3] port default vlan 3
+
+display ip interface brief   //查看设备的ip地址配置情况
+
+s5700为接口配置ip思路
+1, 创建新vlan
+2, 进入此vlan,配置ip
+3, 将接口加入此vlan
+
+直连路由
+静态路由
+动态路由   宣告
+默认路由  特殊的静态路由,可以匹配任意网段
+
+255.255.255.0
+0.0.0.255
+使用动态路由协议ospf配置网络,达到全网互通的目的
+三层交换机
+1, 开启ospf 
+[Huawei]ospf 1
+[Huawei-ospf-1]area 0   //区域0, 默认的首个区域必须使用0
+2,宣告所在网段
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.1.0 0.0.0.255
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.2.0 0.0.0.255
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.3.0 0.0.0.255
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.4.0 0.0.0.255
+3,配置默认路由,使三层交换机可以到达外部网络任意地址
+[Huawei]ip route-static 0.0.0.0 0.0.0.0 192.168.4.2
+路由器
+1,开启ospf
+2,宣告所在网段
+[Huawei-ospf-1-area-0.0.0.0]network 192.168.4.0 0.0.0.255
+     	多使用查看路由表验证配置  dis ip routing-table
+
+传输层
+
+发送数据   打包装(封装)的过程
+接受数据    拆包装的过程
+
+
+速度   www.baidu.com 
+可靠   10000    +1000
+tcp建立链接标志位:
+syn  打算建立连接
+ack  确认
+fin  打算断开连接
+
+tcp三次握手
+
+
+TCP
+可靠 面向连接
+效率低
+
+
+UDP
+不可靠  无连接
+效率高
+
+tcp:
+ftp  21
+http 80
+smtp 25
+ssh  22
+https 443
+dns   53
+mariadb  3306
+udp
+tftp 69
+dns  53
+ntp  123
+
+acl 访问控制列表
+
+
+192.168.1.1
+0.0.0.0
+
+
+
+[Huawei]acl 2000     //定义基本acl,列表号是2000
+[Huawei-acl-basic-2000]rule deny source 192.168.2.1 0    //拒绝源地址是192.168.2.1的数据通过
+[Huawei]interface GigabitEthernet 0/0/1
+[Huawei-GigabitEthernet0/0/1]traffic-filter inbound acl 2000   //进入接口后,应用acl
+
+新需求:
+1,允许2.1通过
+2,拒绝所有人通过
+[Huawei]acl 2000
+[Huawei-acl-basic-2000]undo rule 5   //删除旧规则
+[Huawei-acl-basic-2000]rule permit source 192.168.2.1 0  //创建新规则允许2.1通过
+[Huawei-acl-basic-2000]rule deny source any  //拒绝所有人
+[Huawei]interface GigabitEthernet 0/0/1
+[Huawei-GigabitEthernet0/0/1] traffic-filter inbound acl 2000  //在接口的入方向应用规则,如果之前应用过则不用设置
+
+使用高级acl满足新需求:
+注意先要在g0/0/1口中删除acl 2000 命令是进入接口后输入  undo  traffic-filter inbound
+[Huawei]acl 3000   
+[Huawei-acl-adv-3000]rule deny tcp source 192.168.2.1 0 destination 192.168.1.1 0 destination-port eq 21   //拒绝2.1访问1.1的21号端口(ftp服务)
+
+[Huawei-acl-adv-3000]rule deny tcp source 192.168.2.2 0 destination 192.168.1.1 0 destination-port eq 80   //拒绝2.2访问1.1的80号端口(http服务)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -242,10 +242,34 @@ ceph  -s
 [root@client ~]# mount /dev/rbd0 /mnt/
 [root@client ~]# ls  /mnt
 
+   步骤四：创建快照克隆
+1）克隆快照
 
+[root@node1 ~]#  rbd snap protect image --snap image-snap1  //保护快照 防止删除
+[root@node1 ~]#  rbd snap rm image --snap image-snap1    //会失败
+[root@node1 ~]# rbd clone \
+image --snap image-snap1 image-clone --image-feature layering
+//使用image的快照image-snap1克隆一个新的名称为image-clone镜像
 
+2）查看克隆镜像与父镜像快照的关系
+[root@node1 ~]#  rbd info image-clone
 
+    parent: rbd/image@image-snap1
+#克隆镜像很多数据都来自于快照链
+#如果希望克隆镜像可以独立工作，就需要将父快照中的数据，全部拷贝一份，但比较耗时！！！
 
+[root@node1 ~]#  rbd flatten image-clone     //拷贝
+[root@node1 ~]#  rbd info image-clone       //#注意，父快照信息没了！
+
+  步骤四：其他操作
+
+1） 客户端撤销磁盘映射
+[root@client ~]# umount /mnt
+[root@client ~]# rbd showmapped
+id pool image        snap device    
+0  rbd  image        -    /dev/rbd0
+//语法格式:
+[root@client ~]# rbd unmap /dev/rbd0
 
 
 

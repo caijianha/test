@@ -1,9 +1,0 @@
-当前连接数与并发不是一个概念
-
-并发是指同时访问,服务器一次性回应个数
-查询语句为
-netstat -an | grep ESTABLISHED |wc -l
-
-当前连接数指已经建立TCP连接，不一定有数据传输。
-查询语句为
-netstat -pnt | grep :80 | wc -l

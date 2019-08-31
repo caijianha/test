@@ -1,0 +1,274 @@
++++++++++++RDBMS2_DAY02
+1 数据读写分离
+	1.1 什么是数据读写分离？ 把客户端访问数据的读(select)请求和写(insert update  delete)请求分别分配给不同的数据库服务器处理。
+
+	1.2 如何实现客户端访问数据的，读写分离
+		1 通过程序实现
+			select  ------>  192.168.4.52
+			insert/update/delete  ------> 192.168.4.51
+
+		2 配置服务实现 （在服务器上安装软件 提供服务）
+		  中间件 mysql-proxy  mycat  maxscale
+
+			client ----> 服务器    mysqld
+
+		3 为什么要配置数据读写分离？
+
+
+		4 配置数据读写分离
+		     4.1 配置mysql 一主一从同步结构，要求如下：	
+			               把52配置为51 的从服务器
+
+		     4.2  配置代理服务器57
+				4.2.1 安装提供服务的软件
+[root@room9pc17 ~]# scp /linux-soft/03/mysql/maxscale-2.1.2-1.rhel.7.x86_64.rpm  root@192.168.4.57:/root/
+
+[root@host57 ~]# rpm -ivh maxscale-2.1.2-1.rhel.7.x86_64.rpm
+[root@host57 ~]# rpm -ql maxscale
+
+				4.2.2 修改服务的主配置文件
+[root@host57 ~]# cp /etc/maxscale.cnf /root/
+]# vim /etc/maxscale.cnf
+[root@host57 ~]# sed -i '/#/d' /etc/maxscale.cnf  ^C
+[root@host57 ~]# cat /etc/maxscale.cnf
+
+
+[maxscale]
+threads=auto
+
+
+[server1]
+type=server
+address=192.168.4.51
+port=3306
+protocol=MySQLBackend
+
+[server2]
+type=server
+address=192.168.4.52
+port=3306
+protocol=MySQLBackend
+
+
+[MySQL Monitor]
+type=monitor
+module=mysqlmon
+servers=server1, server2
+user=maxscalemon
+passwd=123qqq...A
+monitor_interval=10000
+
+
+
+
+
+[Read-Write Service]
+type=service
+router=readwritesplit
+servers=server1, server2 
+user=maxscalerouter
+passwd=123qqq...A
+max_slave_connections=100%
+
+
+[MaxAdmin Service]
+type=service
+router=cli
+
+
+
+[Read-Write Listener]
+type=listener
+service=Read-Write Service
+protocol=MySQLClient
+port=4006
+
+[MaxAdmin Listener]
+type=listener
+service=MaxAdmin Service
+protocol=maxscaled
+socket=default
+port=4016
+[root@host57 ~]# 
+
+
+				4.2.3 配置数据库服务器
+					添加监控用户maxscalemon
+grant replication slave, replication client on *.* to maxscalemon@'%'  identified by  "123qqq...A";
+
+					添加路由用户maxscalerouter
+grant select on mysql.* to maxscalerouter@"%" identified by "123qqq...A"; 
+
+				4.2.4 启动代理服务
+[root@host57 ~]# maxscale  -f /etc/maxscale.cnf
+[root@host57 ~]# ls /var/log/maxscale/
+maxscale.log
+
+				4.2.5 查看服务信息
+[root@host57 ~]# ps -C maxscale
+  PID TTY          TIME CMD
+23256 ?        00:00:00 maxscale
+[root@host57 ~]# 
+[root@host57 ~]# netstat -utnlp  | grep  maxscale
+tcp6       0      0 :::4006                 :::*                    LISTEN      23256/maxscale      
+tcp6       0      0 :::4016                 :::*                    LISTEN      23256/maxscale      
+[root@host57 ~]# 
+
+		    
+
+
+		     4.3 验证配置
+			4.3.0 在代理服务本机连接管理服务，查看监控信息
+[root@host57 ~]# maxadmin -uadmin -pmariadb -P4016
+MaxScale> 
+MaxScale> list servers
+Servers.
+-------------------+-----------------+-------+-------------+--------------------
+Server             | Address         | Port  | Connections | Status              
+-------------------+-----------------+-------+-------------+--------------------
+server1            | 192.168.4.51    |  3306 |           0 | Master, Running
+server2            | 192.168.4.52    |  3306 |           0 | Slave, Running
+-------------------+-----------------+-------+-------------+--------------------
+MaxScale> 
+MaxScale> exit
+[root@host57 ~]# 
+
+
+
+				4.3.1 在客户端连接代理服务器57 访问数据
+					 1 在主服务器51 添加访问数据连接用户
+mysql> create database db7;
+mysql> create table db7.a(id int);
+mysql> grant select , insert on db7.* to jim@"%" identified by "123qqq...A";
+
+
+					 2 在客户端50 连接代理服务器57 访问数据
+]# mysql  -h192.168.4.57 -P4006 -ujim  -p123qqq...A
+mysql> select  * from db7.a;
+Empty set (0.00 sec)
+
+mysql> insert into db7.a values(110);
+Query OK, 1 row affected (0.14 sec)
+
+mysql> select  * from db7.a;
++------+
+| id   |
++------+
+|  110 |
++------+
+1 row in set (0.00 sec)
+
+mysql> 
+
+				4.3.2 验证是否实现了数据的读写分离
+					 1  在从服务器52本机向db7.a 插入1条记录
+[root@host52 ~]# mysql -uroot -p123qqq...A -e "insert into db7.a values (52)"
+[root@host52 ~]# mysql -uroot -p123qqq...A -e "select  * from  db7.a"
++------+
+| id   |                到 16:00  上课
++------+
+|  110 |
+|   52 |
++------+
+					 2 客户端50连接代理服务器57 访问数据
+[root@host50 ~]# mysql -h192.168.4.57 -P4006 -ujim  -p123qqq...A
+mysql> select  * from db7.a;
++------+
+| id   |
++------+
+|  110 |
+|   52 |
++------+
+mysql> insert into db7.a values(114);
+mysql> select  * from db7.a;
++------+
+| id   |
++------+
+|  110 |
+|   52 |
+|  114 |
++------+
+3 rows in set (0.00 sec)
+
+mysql> 
+
+2 mysql多实例  (在192.168.4.50主机做实验)
+	2.1 多实例 ： 在1台服务器上 运行多个数据库服务器
+
+	2.2 为什么要配置多实例？
+
+	2.3 配置mysql多实例
+		0 环境准备
+			[root@host50 ~]# rpm -qa  | grep  -i mysql
+			[root@host50 ~]# netstat -utnlp  | grep  :3306
+			[root@host50 ~]# systemctl  stop mysqld
+			[root@host50 ~]# systemctl  disable mysqld
+			[root@host50 ~]# mv /etc/my.cnf /root/
+		1 安装提供多实例服务的软件 时间5分钟 到 16：21 
+[root@room9pc17 ~]#  scp /linux-soft/03/mysql/mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz  root@192.168.4.50:/root/
+[root@room9pc17 ~]# ssh root@192.168.4.50
+
+[root@host50 ~]# tar -zxvf mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
+[root@host50 ~]# mv mysql-5.7.20-linux-glibc2.12-x86_64 /usr/local/mysql
+[root@host50 mysql]# ls /usr/local/mysql/
+bin  COPYING  docs  include  lib  man  README  share  support-files
+
+		2 编辑主配置文件/etc/my.cnf   时间6分钟到 16：50 
+]#vim /etc/my.cnf
+[mysqld_multi]
+mysqld=/usr/local/mysql/bin/mysqld_safe
+mysqladmin=/usr/local/mysql/bin/mysqladmin
+user=root
+
+[mysqld1]
+datadir=/dir1
+port=3307
+log-error=/dir1/mysqld1.err
+pid-file=/dir1/mysqld1.pid
+socket=/dir1/mysqld1.sock
+
+[mysqld2]
+datadir=/dir2
+port=3308
+log-error=/dir2/mysqld2.err
+pid-file=/dir2/mysqld2.pid
+socket=/dir2/mysqld2.sock
+:wq
+
+[root@host50 mysql]# mkdir /dir1
+[root@host50 mysql]# mkdir /dir2
+
+		3 启动服务
+[root@host50 mysql]# /usr/local/mysql/bin/mysqld_multi start 1
+[root@host50 mysql]# /usr/local/mysql/bin/mysqld_multi start 2
+
+		4 查看服务状态
+[root@host50 mysql]# netstat -utnlp  | grep :3307
+[root@host50 mysql]# netstat -utnlp  | grep :3308
+		
+		5 使用初始密码连接服务
+[root@host50 mysql]# /usr/local/mysql/bin/mysql -uroot -p'MxaBr&&;3WWE' -S /dir1/mysqld1.sock
+mysql> alter user root@"localhost" identified by "123456";
+mysql> show databases;
+mysql> exit
+[root@host50 mysql]# /usr/local/mysql/bin/mysql -uroot -p123456 -S /dir1/mysqld1.sock
+mysql>
+
+[root@host50 mysql]# /usr/local/mysql/bin/mysql -uroot -p'MxaBr&&;3WWE' -S /dir2/mysqld2.sock
+mysql> alter user root@"localhost" identified by "123456";
+mysql> show databases;
+mysql> exit
+[root@host50 mysql]# /usr/local/mysql/bin/mysql -uroot -p123456 -S /dir2/mysqld2.sock
+mysql>
+
+		停止多实例服务
+[root@host50 mysql]# /usr/local/mysql/bin/mysqld_multi --user=root --password=123456 stop 1
+[root@host50 mysql]# /usr/local/mysql/bin/mysqld_multi --user=root --password=123456 stop 2
+
+
+			
+
+
+
+
+

@@ -1,0 +1,15 @@
+svn,git区别
+kvm,docker区别
+nginx模块
+lvs的三种模式，区别。
+lvs与nginx的区别
+keepalived用到的协议
+zabbix自己写的监控项
+怎么自动发现，自动注册
+怎么监控数据库
+docker重要的命令
+mysql分列显示
+tcp/ip
+除了简历上的，还了解过什么方面的知识
+
+zabbix把CPU占满了怎么办

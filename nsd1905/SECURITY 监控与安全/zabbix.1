@@ -1,0 +1,189 @@
+++++++监控与安全  6 
+监控服务器的部署与使用 2天     IDC 
+安全 4天
+	系统安全
+	网络安全
+	数据安全 
+	服务安全
+	抓包与扫描
++++security_day01
+1、Zabbix基础
+	1.1 相关概念
+	1.2 Zabbix软件介绍
+	1.3 搭建zabbix监控服务器
+           ]# scp -r /linux-soft/03/Zabbix  root@192.168.2.5:/root/
+		1.3.1 部署运行环境lnmp  （时间15分钟到 11：48）
+
+		1.3.2 安装源码zabbix软件
+]# yum -y  install net-snmp-devel curl-devel libevent-devel
+]# cd Zabbix/
+]# tar -zxvf zabbix-3.4.4.tar.gz 
+]# cd zabbix-3.4.4
+]# ./configure  --help
+]# ls /usr/bin/mysql_config
+
+]# ./configure  --enable-server --enable-proxy --enable-agent --with-mysql=/usr/bin/mysql_config  --with-net-snmp --with-libcurl
+
+]# make install
+
+]# ls /usr/local/
+]# ls /usr/local/etc/
+]# ls /usr/local/bin
+]# ls /usr/local/sbin/
+		1.3.3 创建存储数据的库、表、连接数据库服务用户
+
+> create database zabbix character set utf8;
+
+> grant all on  zabbix.* to  zabbix@"localhost" identified by "zabbix";
+
+]# cd zabbix-3.4.4/database/mysql/
+]# ls *.sql
+]# mysql -uzabbix -pzabbix  zabbix < schema.sql 
+]# mysql -uzabbix -pzabbix  zabbix < images.sql 
+]# mysql -uzabbix -pzabbix  zabbix < data.sql
+ 
+
+		1.3.4 初始化准备
+			]# cd zabbix-3.4.4/frontends/php		
+			]# cp -a  *  /usr/local/nginx/html/
+			]# chmod -R 777 /usr/local/nginx/html/
+		]# vim /usr/local/nginx/conf/nginx.conf
+			http {
+		        fastcgi_buffers 8 16k;
+        		fastcgi_buffer_size 32k;
+        		fastcgi_connect_timeout 300;
+        		fastcgi_send_timeout 300;
+        		fastcgi_read_timeout 300;
+			:wq
+]# /usr/local/nginx/sbin/nginx  -s stop
+]# /usr/local/nginx/sbin/nginx  -t
+]# /usr/local/nginx/sbin/nginx
+
+]# yum -y  install php-mbstring php-bcmath php-gd php-xml  php-ldap
+
+]# vim /etc/php.init
+date.timezone = Asia/Shanghai		//设置时区
+max_execution_time = 300	//最大执行时间，秒
+post_max_size = 32M	//POST数据最大容量
+max_input_time = 300	//服务器接收数据的时间限制
+:wq
+
+]# systemctl restart php-fpm
+			配置+休息 30分钟 到 15：35 上课
+		1.3.5 初始化配置（登陆管理页面）
+		        http://192.168.2.5/index.php
+			]# cat /usr/local/nginx/html/conf/zabbix.conf.php
+		1.3.6 登陆管理页面
+			用户名 admin
+			密码   zabbix
+			1.3.6.1 修改管理员登陆密码
+			1.3.6.2 修改页面语言为中文
+
+		1.3.7 启动zabbix监控服务  时间5分钟 到  16：10
+			1 修改服务配置文件
+			2 创建进程所有者用户
+			3 启动服务
+			4 查看服务状态
+
+vim /usr/local/etc/zabbix_server.conf
+ 	DBHost=localhost			//数据库主机
+ 	DBName=zabbix			//设置数据库名称
+ 	DBUser=zabbix			//设置数据库账户
+ 	DBPassword=zabbix			//设置数据库密码
+ 	LogFile=/tmp/zabbix_server.log		//设置日志
+:wq
+]# useradd zabbix
+]# ls /usr/local/sbin/
+]# zabbix_server 
+]# netstat -utnlp  | grep  :10051
+]# ps -C zabbix_server
+]# ls /tmp/zabbix_server.log 
+
+]# killall  -9  zabbix_server   停止服务的命令
+
+			 休息到 16：30
+2、Zabbix监控服务
+	2.1 基本监控
+	    要求：监控服务器192.168.2.100
+            ]# scp /linux-soft/03/Zabbix/zabbix-3.4.4.tar.gz root@192.168.2.100:/root/
+
+	1 配置客户端 192.168.2.100
+		1 安装zabbix软件
+			]# yum  -y  install gcc  pcre-devel
+			]# tar -zxvf zabbix-3.4.4.tar.gz 
+			]# cd zabbix-3.4.4/
+			]# ./configure  --enable-agent 
+			]# make install
+			]# ls /usr/local/
+			]# ls /usr/local/etc/
+			]# ls /usr/local/bin
+			]#  ls /usr/local/sbin/
+  时间到 16：48 
+
+
+		2 修改配置文件
+  		]# vim /usr/local/etc/zabbix_agentd.conf
+ 		Server=127.0.0.1,192.168.2.5	     //允许访问服务地址列表
+		ServerActive=192.168.2.5:10051	    //监控服务器ip地址
+		LogFile=/tmp/zabbix_agentd.log  //日志文件
+		:wq
+		3 启动服务
+			]# useradd  zabbix
+			]# zabbix_agentd 
+
+		4 查看服务信息
+			]# netstat  -utnlp  | grep  :10050
+			]# ps -C zabbix_agentd
+			]# ls /tmp/zabbix_agentd.log 
+		时间5分钟 到 17：00
+					休息到 17：20 
+	2 配置服务器 192.168.2.5  	
+		登陆管理页面做如下配置：
+			1 添加监控主机
+			2 调用监控模板
+			3 查看监控信息
+
+
+
+	2.2 自定义监控： （在客户端编写监控脚本给监控服务器使用）
+		2.1 配置客户端 192.168.2.100
+			1 启用自定义监控
+]# vim /usr/local/etc/zabbix_agentd.conf
+265 Include=/usr/local/etc/zabbix_agentd.conf.d/*.conf
+280 UnsafeUserParameters=1
+:wq
+			2 编写监控脚本
+]# vim /usr/local/etc/zabbix_agentd.conf.d/a.conf
+UserParameter=get_user_num,wc -l /etc/passwd | awk ' {print $1} '
+:wq
+			3 重启动服务
+[root@web100 ~]# killall -9 zabbix_agentd
+[root@web100 ~]# killall -9 zabbix_agentd
+zabbix_agentd: no process found
+[root@web100 ~]# 
+[root@web100 ~]# zabbix_agentd 
+[root@web100 ~]# 
+[root@web100 ~]# netstat -utnlp  | grep  :10050
+tcp        0      0 0.0.0.0:10050           0.0.0.0:*     LISTEN      30908/zabbix_agentd 
+[root@web100 ~]# 
+			4 测试编写的监控脚本
+[root@web100 ~]# zabbix_get  -s 127.0.0.1 -k get_user_num
+22
+[root@web100 ~]# useradd yaya66
+[root@web100 ~]# zabbix_get  -s 127.0.0.1 -k get_user_num
+23
+[root@web100 ~]# 
+
+
+		2.2 配置服务器
+			登陆管理页面做如下操作
+			1 创建监控模板  ATMP
+			2 创建应用集    mon_users
+			3 创建监控项    mon_sum_users              对应监控命令
+			4 调用创建的模板监控主机
+			5 查看监控数据
+
+
+
+
+

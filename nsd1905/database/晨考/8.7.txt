@@ -1,0 +1,30 @@
+第三天
+01. 导入 /etc/passwd 文件, 表名为Linux_user
+mkdir   /myload
+chown  mysql  /myload
+vim  /etc/my.cnf
+   [mysqld]
+secure_file_priv="/myload"
+mysql> show variables like "secure_file_priv";
+cp /etc/passwd /myload
+
+create table linux_user( name char(22), 
+passwd char(1), uid int, gid int, comment char(150), 
+homedir char(22), shell char(22) );
+
+load data infile "/myload/passwd" into table DB3.linux_user fields terminated by ":" lines terminated by "\n";
+
+02. 导出表Linux_user 中uid小于500的信息
+select * from linux_user where uid<500 into outfile "/myload/user.txt";
+
+03. 查询出username有4个字符的信息
+select name from DB3.linux_user where name LIKE'____';
+
+04. 统计Linux_user表中uid最大值,最小值,平均值
+select max(uid),min(uid),avg(uid) from linux_user;
+
+05. 显示gid最大的前三行
+select * from linux_user order by uid desc limit 3;
+
+
+

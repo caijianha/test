@@ -1,0 +1,315 @@
++++++project2_day02
+
+ http://192.168.4.33/a.html
+
+
+
+加快网站的访问速度：把网站经常被访问的数据，存储到内存服务器里
+
+redis集群 6台redis服务器 192.168.4.51~54/56/58 
+
+分布式内存存储服务 同时能够实现服务的高可用和数据的自动备份，同时支持数据永久存储
+
+分布式内存存储服务（redis集群） 6台redis服务器
+192.168.4.51：6379
+192.168.4.52：6379
+192.168.4.53：6379
+192.168.4.54：6379
+192.168.4.56：6379
+192.168.4.58：6379
+redis集群管理主机 1台    192.168.4.57
+
+步骤如下：
+	1 分别在6台服务器上安装源码的redis软件 并做初始化配置
+	2 停止运行的redis服务，修改配置文件启用集群功能，启动服务、查看端口
+[root@localhost ~]# vim /etc/redis/6379.conf 
+[root@localhost ~]# 
+[root@localhost ~]# 
+[root@localhost ~]# sed -n '70p;815p;823p;829p' /etc/redis/6379.conf 
+bind 192.168.4.58
+cluster-enabled yes
+cluster-config-file nodes-6379.conf
+cluster-node-timeout 5000
+[root@localhost ~]# 
+[root@localhost ~]# /etc/init.d/redis_6379 start
+Starting Redis server...
+[root@localhost ~]# 
+[root@localhost ~]# netstat -utnlp  | grep  redis-server
+tcp        0      0 192.168.4.58:6379       0.0.0.0:*               LISTEN      4507/redis-server 1 
+tcp        0      0 192.168.4.58:16379      0.0.0.0:*               LISTEN      4507/redis-server 1 
+[root@localhost ~]# redis-cli  -h 192.168.4.58 
+192.168.4.58:6379> keys *
+(empty list or set)
+192.168.4.58:6379> CLUSTER info
+cluster_state:fail
+cluster_slots_assigned:0
+cluster_slots_ok:0
+cluster_slots_pfail:0
+cluster_slots_fail:0
+cluster_known_nodes:1
+cluster_size:0
+cluster_current_epoch:0
+cluster_my_epoch:0
+cluster_stats_messages_sent:0
+cluster_stats_messages_received:0
+192.168.4.58:6379> 
+192.168.4.58:6379> CLUSTER nodes
+cec394e8daedf8be012f8c838a351f2575ec7ad5 :6379@16379 myself,master - 0 0 0 connected
+192.168.4.58:6379>exit
+
+	3 在管理主机57 上部署ruby脚本运行环境、创建管理集群的脚本、查看脚本帮助信息
+	  时间12 分钟到 10：30 
+
+	4 在管理主机57上;创建集群并查看集群信息  时间10分钟 到  10：46 
+
+]# redis-trib.rb create --replicas 1  192.168.4.51:6379 192.168.4.52:6379 192.168.4.53:6379 192.168.4.54:6379 192.168.4.56:6379 192.168.4.58:6379
+
+]# redis-trib.rb info  192.168.4.51:6379
+]# redis-trib.rb check  192.168.4.51:6379
+
+
+	5 在客户端主机访问集群执行存取数据的操作
+]# redis-cli  -c  -h 192.168.4.56 
+> set school tarena
+> set class  nsd1905
+> set age  19
+> set name  bob
+> keys *
+> exit
+
+	配置PHP支持连接redis集群
+		升级网站运行平台为LNMP 
+
+			删除httpd的配置 
+[root@33 ~]# systemctl  stop httpd
+[root@33 ~]# 
+[root@33 ~]# systemctl  disable httpd
+Removed symlink /etc/systemd/system/multi-user.target.wants/httpd.service.
+[root@33 ~]# 
+[root@33 ~]# umount /var/www/html/
+[root@33 ~]# 
+[root@33 ~]# vim /etc/fstab 
+[root@33 ~]# tail -1  /etc/fstab 
+#192.168.4.30:/yang /var/www/html nfs _netdev 0 0
+[root@33 ~]# 
+
+	 部署LNMP环境	(2台 网站服务器都要配置)
+		安装源码nginx软件 安装gcc依赖包
+		安装php-fpm软件
+		安装mariadb-server 、 mariadb-devel 软件
+		安装php php-mysql  php-devel 软件
+		把NFS服务的共享目录挂载到网页目录/usr/local/nginx/html下
+		启动nginx服务 
+		启动php-fpm服务
+
+	 测试LNMP环境   
+		[root@33 ~]# vim /usr/local/nginx/html/a2.php
+		<?php
+			$school="tarena";
+			echo $school;
+		?>
+
+		:wq
+
+[student@room9pc01 ~]$ curl  http://192.168.4.44/a2.php
+tarena 
+
+[student@room9pc01 ~]$ curl  http://192.168.4.33/a2.php
+tarena
+
+
+	 配置PHP支持连接redis集群(33/44)  15分钟 到 14：30
+]# rpm -q gcc  php-devel
+]# tar -zxvf redis-cluster-4.3.0.tgz 
+]# cd redis-4.3.0/
+]# phpize
+]# ./configure --with-php-config=/usr/bin/php-config
+]# make
+]# make install 
+]# ls  /usr/lib64/php/modules/
+]# vim /etc/php.ini
+
+]# sed -n '728p;730p'  /etc/php.ini 
+	extension_dir = "/usr/lib64/php/modules/"
+        extension = "redis.so"
+
+]# systemctl  restart php-fpm
+]# php -m | grep -i redis
+
+	 编写php脚本连接集群存取数据
+	 客户端访问网站脚本存取数据
+
+
+
+PXC集群  3台linux系统服务器 192.168.4.71～73
+	   1  在3台服务器192.168.4.71～73上，安装pxc软件
+		vim /etc/hosts
+			192.168.4.71   pxc71
+			192.168.4.72   pxc72
+			192.168.4.73   pxc73
+		三台机器ping主机名要相互可以通
+
+		for i in 71 72 73  
+		do 
+		ssh root@192.168.4.$i "cd PXC/ && rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm && yum -y install percona-xtrabackup-24-2.4.13-1.el7.x86_64.rpm  && rpm -ivh qpress-1.1-14.11.x86_64.rpm"
+		done
+
+		for i in 71 72 73  
+		do 
+		ssh root@192.168.4.$i "cd PXC/ && tar -xf Percona-XtraDB-Cluster-5.7.25-31.35-r463-el7-x86_64-bundle.tar && yum -y install  Percona-XtraDB-Cluster-*.rpm"
+		done
+
+	   2  修改3台服务器配置文件
+		vim /etc/percona-xtradb-cluster.conf.d/mysqld.cnf
+			server-id=72  //id不要一样
+
+		vim /etc/percona-xtradb-cluster.conf.d/wsrep.cnf
+			wsrep_cluster_address=gcomm://192.168.4.71,192.168.4.72,192.168.4.73  //定义集群IP
+			wsrep_node_address=192.168.4.72	//自己的IP
+			wsrep_node_name=pxc72		//自己的主机名
+			wsrep_sst_auth="sstuser:123qqq...A"     //授权用户和密码
+
+	   3  在任意1台服务器启动集群服务，并使用数据库管理员初始密码登陆、重置登陆密码、创建授权用户。
+		[root@pxc71 ~]# systemctl start mysql@bootstrap.service  //在一台上执行!!!!!!
+		[root@pxc71 ~]# grep pass /var/log/mysqld.log 
+		[root@pxc71 ~]# mysql -uroot -p'uo2E=yLIr<LC'
+			alter user root@"localhost" identified by "123456";
+			grant reload,lock tables,replication client,process on *.* to sstuser@"localhost" identified by "123qqq...A";
+			
+	   4  在另外2台服务上，启动数据库服务，数据库管理员登陆，查看授权用户
+			[root@pxc72 ~] systemctl start mysql
+			[root@pxc73 ~] systemctl start mysql
+		select user,host from mysql.user;
+
+	   5  在3台主机分别查看集群信息 
+			mysql> show status like "%wsrep%";
+		
+	   
+[root@host72 ~]# mysql -uroot -p123456
+mysql> grant all on gamedb.* to  yaya99@"%"  identified by "123456";
+
+	   7  客户端使用授权用户 访问集群存/取数据
+[root@web33 ~]#
+   38  mysql -h192.168.4.71 -uyaya99 -p123456
+   39  mysql -h192.168.4.72 -uyaya99 -p123456
+   40  mysql -h192.168.4.73 -uyaya99 -p123456
+
+	休息到 17：05
+
+	   8  把mysql主从同步结构的数据迁移到PXC 集群上。
+		1 停止22从服务器的slave 进程  stop slave; 13：00
+		2 使用innobackupex 对22 做数据完全备份
+		3 把完全备份拷贝到PXC集群主机做数据恢复（innobackupex）
+		4 启动mysql数据库服务
+		5 查看slave 进程的状态
+		6 查看数据
+
+LB集群 (配置数据库服务负载均衡集群) 
+ 	ip地址 192.168.4.81 做调度器,把访问数据库服务的连接请求平均分发给71/72/73
+		
+	1 安装haproxy软件
+		yum -y install haproxy.x86_64		
+	2 修改配置文件
+		vim /etc/haproxy/haproxy.cfg
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 3
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 3000
+
+listen status
+        mode http
+        bind *:80			//定义端口
+        stats enable		
+        stats uri /admin		//定义界面名称
+        stats auth admin:admin		//账号密码
+
+listen mysql_3306 *:3306
+        mode tcp
+        option tcpka
+
+        balance roundrobin
+        server mysql_01 192.168.4.71:3306 check
+        server mysql_02 192.168.4.72:3306 check
+        server mysql_03 192.168.4.73:3306 check
+
+	3 启动服务
+		systemctl start haproxy.service 
+		systemctl enable haproxy.service 
+		
+	4 登陆管理页面，查看调度信息
+		http://192.168.4.81/admin
+
+	5 测试配置
+		mysql -h192.168.4.81 -uyaya99 -p123456 -e "select @@hostname"
+
+
+HA集群 (配置调度器的高可用集群, vip 地址 192.168.4.250 )
+	准备备用调度器服务器 192.168.4.82 （配置与81一致)
+	1 在2台主机上安装keepalived软件
+		yum -y install haproxy.x86_64
+		vim /etc/haproxy/haproxy.cfg
+	
+	2 把主机81 配置为主服务器
+! Configuration File for keepalived
+
+global_defs {
+   notification_email {
+     root@com.cn                        //邮箱收件人
+   }
+   notification_email_from ka@localhost   //发件人
+   smtp_server 127.0.0.1         //定义邮件服务器
+   smtp_connect_timeout 30
+   router_id haproxy81             ///设置路由ID号（实验需要修改）
+   vrrp_iptables				//不添加任何防火墙规则
+   vrrp_skip_check_adv_addr
+   vrrp_strict
+   vrrp_garp_interval 0
+   vrrp_gna_interval 0
+}
+
+vrrp_instance VI_1 {
+    state MASTER			//主服务器为MASTER（备服务器需要修改为BACKUP）
+    interface eth0		//定义网络接口
+    virtual_router_id 51		//主备服务器VRID号必须一致
+    priority 100			//服务器优先级,优先级高优先获取VIP
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass 1111		//主备服务器密码必须一致
+    }
+    virtual_ipaddress {
+        192.168.4.222			//谁是主服务器谁获得该VIP（实验需要修改）
+    }
+}
+
+
+
+	3 把主机82 配置为备用服务器
+	4 启动服务
+		systemctl start keepalived.service
+		systemctl enable keepalived.service
+
+时间8分钟 到 18：13 
+
+	5 查看vip地址
+		ip addr show eth0
+
+	5 测试配置
+		mysql -h192.168.4.222 -uyaya -p123qqq...A -e "select @@hostname"
+
+
+
+

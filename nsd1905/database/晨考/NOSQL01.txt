@@ -1,0 +1,21 @@
+第一天
+1.关系型数据库与非关系型数据库的区别, 写出2种
+不需要预先定义数据存储结构
+每条记录可以有不同的数据类型和字段个数
+
+2.redis默认端口号
+6379
+3.redis内存清除策略, 写出3种
+volatile-lru          //最近最少使用 (针对设置了TTL的key)
+allkey-lru            //删除最少使用的key(针对所有的key)
+allkey-lfu            //从所有key中清除使用频率最少的key
+volatile-lfu          //从所有配置了过期时间的key中清楚使用频率最少的key
+volatile-random  //在设置了TTL的key中随机清除
+noeviction           //不删除,写满时报错
+
+4.LNMP 配置思路 (2分)
+1.安装nginx  gcc等依赖包
+2.安装redis数据库
+3.安装php  php-devel  php-mysql等依赖包
+
+

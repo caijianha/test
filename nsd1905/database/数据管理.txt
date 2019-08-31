@@ -1,0 +1,143 @@
+system +系统命令 ,可以在数据库中执行数据库之外的命令
+
+
+
+数据导入导出的默认路径
+	show variables like '%file%'; 模糊查询
+	结果表中会有一行参数 secure_file_priv 
+	show variables like 'secure_file_priv';
+		---->/var/lib/mysql-files/
+修改默认读写路径
+	vim /etc/my.cnf
+	[mysqld]	
+	secure_file_priv='/myload'
+	
+	mkdir /myload
+	chown mysql /myload
+	systemctl restart mysqld
+
+
+数据导入:
+	******表的列数要与文件中自定义分割符区分后的列数相同***********
+	load data infile '目录/文件名' into table 库.表
+	fields terminated by '符号' lines terminated by '\n';
+	(前者引号内为列分隔符     ,	后者引号内为行分割符)
+
+数据导出:
+	导出的是什么数据取决于查询命令查的结果是谁
+	1. select 查询命令  into outfile '目录/文件名'; (文件名可以不存在,会自动创建)
+	2. select 查询命令  into outfile '目录/文件名' fields terminated by '符号';
+	3. select 查询命令  into outfile '目录/文件名' fields terminated by '符号' lines terminated by '符号';
+	如果不指定分隔符 默认为tab键分割	
+
+表记录管理
+	1.添加记录   insert into	(默认新添加的记录 追加在记录的末尾)
+		1)添加一条记录给所有列赋值
+			insert into 表名 values (字段值列表);
+		2)添加多条记录给所有列赋值
+			insert into 表名 values (字段值列表1),(字段值列表2),(字段值列表N);
+		3)添加一条记录给指定列赋值
+			insert into 表名(字段名列表) values (字段值列表);
+		4)添加多条记录给指定列赋值
+			insert into 表名(字段名列表) values (字段值列表1),(字段值列表N);
+	2.查询记录	select
+		select 字段名列表 from 表名 [ where 条件 ] ;
+	3.更新记录	update(修改记录字段的值)
+		update 库名.表名 set 字段名=值,字段名=值 [ where 条件 ];	(加条件修改该列的指定行,不加修改整列)
+	4.删除记录	delete
+		delete from 表名 [ where 条件 ];
+
+匹配条件
+	1.基本匹配条件
+		数值比较  >  <  >=  <=  !=    
+		字符比较  =  !=	is null    is not null
+		范围匹配
+			in(值列表)   在....里
+			not in (值列表)
+			between 数字 and 数字  在...之间
+
+			distinct 字段名  去重显示
+				selec distinct 字段名 from 表名;
+		匹配空(null)
+		匹配非空
+		逻辑匹配(多个匹配条件)
+			or	逻辑或	多个匹配条件,某一个成立即可
+			and	逻辑与  多个匹配条件,必须同时成立
+			!或not 逻辑非  去反
+	2.高级匹配条件
+		1.模糊查询	like
+			where 字段名 like '表达式';
+
+				通配符:	_ 表示单个字符
+					%  表示0个或多个字符
+
+		2.正则匹配	regexp
+			where 字段名 regexp '正则表达式';	{ ^  $  .   [ ]    *   | }
+
+
+ 		3.四则运行	+ - * / %  ()
+ 			select 字段名[ + - * / ] from 表名;
+			select 字段名 from 表名 where 字段名%数字 [ = != ] 值;
+
+
+	3.操作查询结果(对查询后的数据做处理)
+		聚集函数(服务内置的对数据做统计的命令)
+		avg(字段名)		//统计字段平均值
+		sum(字段名)		//统计字段之和
+		min(字段名)		//统计字段最小值
+		max(字段名)		//统计字段最大值
+		count(字段名)	//统计字段值个数
+			select 函数(字段名) from 表名 [ where 条件 ];
+
+		查询结果排序	order by 字段名 asc(正序)|desc(倒序);  //默认正序
+		查询结果分组	group by 字段名;
+		(等效于distinct去掉重复显示,区别是:group对结果进行分组,distinct先删重复再出结果)
+			select 字段名 from 表名 [ order by 字段名 | group by 字段名 ] ;
+	4.查询结果过滤   having 条件;
+	5限制查询结果显示行数 limit
+		1) 只显示查询结果的前几行   limit 数字;
+		2)只显示查询结果指定范围之内的行  limit 起始行数字,总共显示的行数;
+			select 字段名 from 表名 limit 数字;
+
+
+Mysql管理工具
+		连接mysql服务的方式
+			命令行.图形软件.连接脚本
+		安装图形软件连接数据库
+
+		yim -y install httpd php php-mysql
+		scp /linux-soft/03/mysql/phpMyAdmin-2.11.11-all-languages.tar.gz	root@192.168.4.50:/root/
+
+		systemctl start httpd
+		systemctl enable httpd
+		tar -zxvf phpMyAdmin-2.11.11-all-languages.tar.gz 
+		mv phpMyAdmin-2.11.11-all-languages  /var/www/html/phpmyad
+		cd  /var/www/html/phpmyad/
+		cp config.sample.inc.php config.inc.php
+		vim config.inc.php
+			17行:
+			$cfg['blowfish_secret'] = '';	引号内为验证信息,随意填但不能为空
+			31行:
+			$cfg['Servers'][$i]['host'] = 'localhost';	用户信息,根据使用者修改
+		systemctl restart httpd
+		firefox 192.168.4.50/phpmyad
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

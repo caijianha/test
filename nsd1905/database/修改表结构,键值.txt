@@ -1,0 +1,108 @@
+约束条件
+	null		值类型
+		null 	 	字段可以为空
+		not null 	不允许字段为空
+
+	key		键值
+		普通索引	index
+		唯一索引	unique
+		主键		primary key
+		外键		foreign key
+		全文索引	fulltext
+	default	设置默认值,缺省为null
+	extra		额外设置
+
+
+修改表结构
+alter table 库名.表名 执行动作;
+	执行动作:
+		添加新字段	add
+			add 字段名 类型 [约束条件];			//不指定位置默认在末尾
+			add 字段名 类型 [约束条件] after 字段名;	//指定新字段位置
+			add 字段名 类型 [约束条件] first;		//指定新字段位置为表首
+		修改字段类型	modify
+			##修改的字段类型不能与已存储的数据冲突##
+			**修改时不变的部分依旧要照常写,不写会重置为默认值**
+			modify 字段名 类型 约束条件 [ after 字段名 | first ];
+		修改字段名	change
+			**修改时不变的部分依旧要照常写,不写会重置为默认值**
+			change 源字段名 新字段名 类型 约束条件 [ after 字段名 | first ];
+		删除字段	drop
+			drop 	字段名;
+		修改表名	rename
+			rename 新表名;
+#########################################################################
+Mysql 键值
+	key		键值
+		主键		primary key
+		外键		foreign key
+		普通索引	index
+			--一个字段可以有多个index字段
+			--字段值允许重复,且可以赋null值
+			--通常把作为查询条件的字段设置为Index字段
+			--字段标志是 MUL
+		唯一索引	unique
+		全文索引	fulltext	
+   一.	索引
+		索引类型[字段值的排序方式]:Btree(默认方式)[二叉树式排序],B+tree,hash
+	优点:
+		--对每一行表数据有唯一性
+		--可以加快数据的查询速度
+	缺点:
+		--占物理空间
+		--当表数据发生改变时,索引目录也需要更新维护,降低数据维护速度
+	创建索引
+		1.建表时创建索引
+			create table 表名(字段列表,index(字段名1),index(字段名2)....);
+	
+		2.在已有表中添加索引
+			create index 索引名 on 表名(字段名)	//索引名一般与字段名相同
+	查看索引
+		基本查看	desc 表名 ; key列的值
+		详细查看	show index from 表名 \G;	// \G竖列显示
+	删除索引
+		drop index 索引名 on 表名;	
+
+   二.	主键
+	规则:
+		--字段值不允许重复,且不允许赋null值
+		--一个表中只能有一个primary key字段
+		--多个字段作为主键,成为复合主键,必须一起创建
+		--标示为PRI
+		--主键通常与auto_increment连用(让字段自增长赋值)
+		--通常把标志唯一标识记录的字段设置为主键[记录编号的字段]
+	创建主键
+		1.建表时创建主键
+			1) create table 表名 (字段 类型 primary key,字段列表.....);
+			2) create table 表名 (字段列表..... , primary key(字段名));
+		2.在已有表中添加主键
+			alter table 表名 add primary key(字段名);
+	复合主键
+		--必须一起创建,不能单个添加(如果表中已有单个主键,就不能再添加主键)
+		--多个主键字段的值不能同时重复
+		创建主键
+		create table 表名(字段列表... , primary key(字段名1,字段名2....));
+		删除主键
+		alter table 表名 drop primary key;(根本上理解,复合字段总体只能算是一个)
+	联用 auto_increment 自增长
+		create table 表名 (字段 类型 auto_increment primary key,字段列表);
+		#######auto_increment只能与主键联用##############
+   三.	外键
+		作用:向表中插入记录时,字段的值在另外一张表字段值里选择
+		简单来说就是,A表的字段值的枚举值(enum,set)是B表中对应字段含有的值
+		--表的存储引擎必须是innodb  engine=innodb
+		--两张表字段类型一致
+		-被参照字段的值要有唯一性,且不为空值(主键)
+	创建外键
+		create table 表名 (字段列表.... , foreign key(字段名) references 参考的表名 (字段名) [ on update cascade  同步更新 | on delete cascade 同步删除 ] );
+		update 表名 set 新数据 where 旧数据	同步修改数据
+		delete from 表名 where 数据		同步删除数据
+	删除外键
+		alter table 表名 drop foreign key 外键名;
+		show create table 表名 可以查看外键名
+
+
+
+
+
+

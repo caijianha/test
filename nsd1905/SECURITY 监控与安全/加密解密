@@ -1,0 +1,176 @@
++++++security_day04
+1 加密与解密
+	1.1 相关概念
+	1.2 gpg介绍
+
+
+  116  useradd usera
+  117  useradd userb
+  118  echo 123456  | passwd --stdin usera
+  119  echo 123456  | passwd --stdin userb
+
+]# ssh  -X usera@localhost
+]# ssh  -X usera@localhost
+
+
+	1.3 GPG对称加/解密
+
+usera  发送文件 加密
+    3  vim test.txt
+    5  cat test.txt 
+    6  gpg -c test.txt
+    8  cat test.txt.gpg 
+   12  mv  test.txt.gpg /tmp/
+
+userb  接收文件 解密
+	1  cat /home/usera/test.txt.gpg
+	7  gpg  -d   /tmp/test.txt.gpg  > ~/a.txt
+       10  cat ~/a.txt
+
+	到14：25 
+
+	1.4 GPG非对称加/解密
+		1.4.1 非对称加/解密工作过程
+		1.4.2 非对称加/解密操作
+
+	]# mv /dev/random  /dev/randomold
+	]# ln -s  /dev/urandom  /dev/random
+
+userb ：
+	1 创建密钥对文件   (14:57) 
+	 	]$ gpg --gen-key
+	 	]$ ls ~/.gnupg
+
+	2 导出公钥 并共享公钥文件
+		]$  gpg -a --export  > userb.pub
+		]$  mv userb.pub  /tmp/
+
+usera :
+	1 导入公钥
+		]$ gpg --import  /tmp/userb.pub
+		]$ ls ~/.gnupg/
+
+	2 使用公钥 并共享文件
+		[usera@room9pc17 ~]$ vim  b3.txt 
+i love  my  boy
+i love  my  boy
+i love  my  boy
+i love  my  boy
+i love  my  boy
+i love  my  boy
+[usera@room9pc17 ~]$ gpg -e -r userb b3.txt
+		  ]$ mv  b3.txt.gpg   /tmp/
+userb:
+	1 使用私钥解密
+		]$ gpg -d /tmp/b3.txt.gpg  > ~/b3.txt
+		]$ cat  ~/b3.txt
+
+
+			休息到 15：44 
+		
+	1.5 GPG数字签名 (验证数据完整性)
+		[userb@room9pc17 ~]$ cat a.txt 
+		I LOVE YOU CHIAN
+		I LOVE YOU CHIAN
+		I LOVE YOU CHIAN
+		I LOVE YOU CHIAN
+		[userb@room9pc17 ~]$ gpg -b a.txt 
+		[userb@room9pc17 ~]$ mv a.txt* /tmp/
+
+[usera@room9pc17 ~]$ cat /tmp/a.txt
+I LOVE YOU CHIAN
+I LOVE YOU CHIAN
+I LOVE YOU CHIAN
+I LOVE YOU CHIAN
+[usera@room9pc17 ~]$ gpg --verify /tmp/a.txt.sig 
+gpg: 于 2019年08月26日 星期一 15时57分56秒 CST 创建的签名，使用 RSA，钥匙号 E7116770
+gpg: 完好的签名，来自于“userb (teacher) <xxx@163.com>”
+gpg: 警告：这把密钥未经受信任的签名认证！
+gpg:       没有证据表明这个签名属于它所声称的持有者。
+主钥指纹： ADC6 B254 C1A8 2884 0E24  00BC CF9A 66E3 E711 6770
+[usera@room9pc17 ~]$ 
+
+
+[root@room9pc17 ~]# sed -i '1iAAAAA' /tmp/a.txt
+[root@room9pc17 ~]# cat /tmp/a.txt
+AAAAA
+I LOVE YOU CHIAN
+I LOVE YOU CHIAN
+I LOVE YOU CHIAN
+I LOVE YOU CHIAN
+[root@room9pc17~]# 
+[usera@room9pc17 ~]$ gpg --verify /tmp/a.txt.sig 
+gpg: 于 2019年08月26日 星期一 15时57分56秒 CST 创建的签名，使用 RSA，钥匙号 E7116770
+gpg: 已损坏的签名，来自于“userb (teacher) <xxx@163.com>”
+[usera@room9pc17 ~]$ 
+
+
+
+
+2 AIDE入侵检测系统
+	[root@host50 ~]# rpm -q aide || yum  -y  install
+	[root@host50 ~]# sed -i '99,312s/^/#/' /etc/aide.conf
+
+	[root@host50 ~]# vim +98 /etc/aide.conf
+	/root/          FIPSR
+	:wq
+
+	[root@host50 ~]# aide  --init
+	AIDE, version 0.15.1
+	### AIDE database at /var/lib/aide/aide.db.new.gz initialized.
+
+[root@host50 ~]# ls /var/lib/aide/
+aide.db.new.gz
+
+[root@host50 ~]# mv /var/lib/aide/aide.db.new.gz  /opt/
+
+[root@host50 ~]# cp /opt/aide.db.new.gz /var/lib/aide/aide.db.gz
+
+[root@host50 ~]# ls /var/lib/aide/
+aide.db.gz
+	    
+ 		1022  cd /root/
+ 		1023  ls
+ 		1024  rm -rf mysql.tar.gz 
+ 		1025  rm -rf redis-4.0.8.tar.gz 
+ 		1026  vim text.txt 
+ 		1027  touch a1.txt
+
+		[root@host50 ~]# aide --check
+
+
+
+
+3 扫描与抓包
+	3.1 扫描
+]# nmap -sP  172.40.58.0/24
+]# nmap  172.40.58.144
+]# nmap -A  172.40.58.144
+]# nmap  -p 6351       192.168.4.51
+]# nmap  -p 6351,3306  192.168.4.51
+]# nmap -n  -p 6351,3306  192.168.4.51
+]# nmap -n  -p 6351,3306  192.168.4.51-53
+]# nmap -n  -p 6351,3306  192.168.4.51,56,53
+]# nmap -sS -n  -p 21-80  192.168.4.51
+]# nmap -sS -n  -p 21-80,6351,3306  192.168.4.51
+]# nmap -p 6356 192.168.4.56
+[root@room9pc17 ~]# man nmap
+
+	3.2 抓包
+]# tcpdump -i  br1
+]# tcpdump -i  br1  -c 2  
+]# tcpdump -i  br1  -c 2  -A -w  file1.cap
+]# tcpdump -A  -r  file1.cap
+]# tcpdump -i  br1    icmp  and  host 172.40.58.144
+]# tcpdump -i  br1    icmp  and  src host 172.40.58.144
+]# tcpdump -i  br1 -c 2  tcp  and port 21
+]# tcpdump -i  br1 -c 2  tcp  and port 22
+]# tcpdump -i  br1 -c 2  tcp  and port 22  and host 172.40.58.144
+]# tcpdump -i  br1  icmp  and   host 172.40.58.69 or host 172.40.58.79 
+]# tcpdump -i  br1  icmp  and  \( host 172.40.58.69 or host 172.40.58.79 \)
+
+
+
+
+
+

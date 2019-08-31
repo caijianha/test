@@ -1,0 +1,435 @@
+++++++++RDBMS_DAY04
+1 用户授权
+	1.1 什么是用户授权:在数据库服务器上添加新的连接用户，在添加用户时可以设置访问权限及连接密码。默认数据库管理员root用户本机登陆有授权权限。
+
+	1.2 授权命令格式 mysql>
+		grant 
+
+	1.3 授权例子
+
+在50主机添加授权用户
+mysql> grant  all on  *.*  to mydba@"%" identified by "123qqq...A" 
+with grant option;
+
+客户端使用授权用户连接数据库服务器
+]# mysql -h192.168.4.50  -umydba  -p123qqq...A
+
+mysql>
+
+mysql> grant  select , insert ,update(password,uid) on db3.user  
+to yaya@"localhost" identified by "123qqq...A";
+
+	1.4 相关命令  练习时间15分钟 到 10：50
+select    user( );	显示登录用户名及客户端地址
+show     grants;	用户显示自身访问权限
+
+show  grants   for  用户名@“客户端地址”; 管理员查看已有授权用户权限
+mysql> show grants for yaya@"localhost";
+mysql> show grants for yaya100@"localhost";
+
+set  password=password(“密码”); 授权用户连接后修改连接密码
+[root@host51 ~]# mysql -h192.168.4.50 -umydba -p123qqq...A
+MySQL [(none)]> set password=password("123456");
+MySQL [(none)]> exit
+[root@host51 ~]# mysql -h192.168.4.50 -umydba -p123456
+MySQL [(none)]>
+
+set   password   for  用户名@"客户端地址”= password(“密码”)；管理员重置授权用户连接密码
+[root@host50 ~]# mysql -uroot -ptarena
+mysql> set password for  mydba@"%"=password("123qqq...A");
+mysql> exit;
+[root@host51 ~]# mysql -h192.168.4.50 -umydba -p123qqq...A
+MySQL [(none)]>
+
+drop user  用户名@"客户端地址”;   删除授权用户(必须有管理员权限)
+mysql> drop user  yaya100@"localhost";
+ERROR 1396 (HY000): Operation DROP USER failed for 'yaya100'@'localhost'
+mysql> 
+mysql> drop user  yaya@"localhost";
+Query OK, 0 rows affected (0.00 sec)
+
+	1.5 授权库mysql库 (记录授权信息)
+可以查看表记录，查看到授权用户的权限信息，也可以通过修改记录 ，修改用户的权限。
+host50]# mysql -uroot  -ptarena
+mysql> show  databases;
+mysql> use mysql;
+mysql> show tables;
+
+user表    		记录已有的授权用户及权限
+mysql> desc mysql.user;
+mysql> select host , user  from mysql.user;
+mysql> select  * from mysql.user where  host="%" and user="mydba"\G;
+
+db表       		记录已有授权用户对数据库的访问权限
+mysql> desc mysql.db;
+mysql> select host , db , user from mysql.db;
+mysql> select  * from   mysql.db where host="localhost" and db="db3" and user="admin2"\G;
+mysql> show grants  for  admin2@"localhost";
+
+
+	练习到 11：40 
+
+mysql> update mysql.db  set Update_priv="N" , Delete_priv="N" 
+where host="localhost" and db="db3" and user="admin2";
+
+mysql> select  * from   mysql.db where host="localhost" and db="db3" and user="admin2"\G;
+
+mysql> flush   privileges;
+
+mysql> show grants  for  admin2@"localhost";
+
+tables_priv表       	记录已有授权用户对表的访问权限
+
+mysql> desc  mysql.tables_priv;
+mysql> select  * from  mysql.tables_priv;
+mysql> select  * from  mysql.tables_priv where db="db3" and table_name="user"\G;
+mysql> show grants for admin@"192.168.4.%";
+
+
+columns_priv表   	记录已有授权用户对字段的访问权限
+mysql> desc  mysql.columns_priv;
+mysql> select  * from  mysql.columns_priv;
+Empty set (0.00 sec)
+
+mysql> grant select,update(uid) on db3.user to yaya99@"%" identified by "123456";
+
+mysql> select  * from  mysql.columns_priv;
+	1.6 撤销权限 （删除已有授权用户的权限）
+		命令格式 mysql>
+		revoke 权限列表  on  库名.表   from    用户名@"客户端地址";
+
+	例子  练习10分钟 到 14：23 
+mysql> select host , user from mysql.user;
+mysql> show grants for  mydba@"%";
+
+mysql> revoke  grant option  on  *.* from  mydba@"%"; //删除创建其他用户访问权限
+mysql> show grants for  mydba@"%";
+
+mysql> revoke delete  on  *.* from  mydba@"%";
+mysql> show grants for  mydba@"%";
+
+mysql> revoke all on  *.* from  mydba@"%";
+mysql> show grants for  mydba@"%";
+
+SELECT, INSERT, UPDATE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE 
+		
+	1.7 删除授权用户 
+		mysql> drop user mydba@"%"; 
+		mysql> select host , user from mysql.user;
+[root@host51 ~]# mysql -h192.168.4.50 -umydba -p123qqq...A
+ERROR 1045 (28000): Access denied for user 'mydba'@'192.168.4.51' (using password: YES)
+
+
+	1.8 管理root密码   练习10分钟 到 14：50 
+		1.8.1 恢复密码
+]# systemctl  stop  mysqld
+
+]# vim /etc/my.cnf
+[mysqld]
+skip-grant-tables
+#validate_password_policy=0
+#validate_password_length=6
+:wq
+
+]# systemctl  start  mysqld
+
+]# mysql  连接服务
+mysql> select  host , user ,  authentication_string from mysql.user;
+
+mysql> update mysql.user set  authentication_string=password("A...qqq321") 
+    -> where
+    -> host="localhost" and  user="root" ;
+
+mysql> flush privileges;
+mysql> exit
+
+]# vim /etc/my.cnf
+[mysqld]
+#skip-grant-tables
+validate_password_policy=0
+validate_password_length=6
+:wq
+]# systemctl  restart mysqld
+
+[root@host50 ~]# mysql -uroot -pA...qqq321
+mysql> 
+
+		1.8.2 修改密码（重置密码）
+[root@host50 ~]# mysqladmin -hlocalhost  -uroot  -p  password "123456"
+Enter password:输入旧密码
+
+[root@host50 ~]# mysql -uroot -p123456
+mysql> 
+		休息到 15：10 
+
+2 数据完全备份 
+	2.1 数据备份目的？ 数据丢失或损坏，可以使用备份数据恢复。
+	2.2 数据备份方式？
+		物理备份 50
+			]# cp  -r  /var/lib/mysql   /root/mysql.bak
+			]# tar -zcvf  /root/mysql.tar.gz  /var/lib/mysql/*
+			]# scp  -r  /root/mysql.bak  root@192.168.4.51:/opt/
+
+		物理恢复 51
+			]# netstat -utnlp  | grep  :3306
+			]# systemctl  stop mysqld
+			]# rm -rf /var/lib/mysql
+			]# cp -r /opt/mysql.bak  /var/lib/mysql
+			]# chown -R mysql:mysql  /var/lib/mysql
+			]# ls /var/lib/mysql -l
+			]# ls /var/lib/mysql -ld
+			]# ls /var/lib/mysql
+			]# systemctl  start mysqld
+			]# netstat -utnlp  | grep  :3306
+			]# mysql -uroot -p123456
+			mysql> show  databases;
+
+		逻辑备份： 使用软件再带备份程序(备份命令)对数据做备份，在执行备份命令时，会根据已有的数据生成对应的命令，把命令存放到指定的备份文件里。恢复时，执行备份文件里的命令恢复数据。
+
+	2.3 数据备份策略？
+		完全备份：备份所有数据（ 1张表 、 1个库 、 1台服务器）
+		只备份新数据：
+		差异备份：备份完全备份后，所有新产生的数据。
+		增量备份：备份上次备份后，所有新产生的数据。
+
+		a   文件
+周一  完全备份  10   10
+周二  差异备份  20   20
+周三  差异备份   3   23 
+周四  差异备份   5   28
+周五  差异备份   1   29
+周六  差异备份   2   31
+周日  差异备份   3   34
+
+
+		a   文件
+周一  完全备份  10   10
+周二  增量备份  20   20
+周三  增量备份   3   3 
+周四  增量备份   5   5
+周五  增量备份   1   1
+周六  增量备份   2   2
+周日  增量备份   3   3
+
+	休息到 16：15 
+
+	2.4 完全备份----mysqldump命令  
+		备份命令格式
+		]# mysqldump   -uroot   -p密码   库名  >  目录/xxx.sql
+
+		库名的表示方式：
+		--all-databases 或  -A      	//所有库
+		数据库名			//单个库  db3 
+		数据库名  表名          	//单张表  db3 user
+		-B  数据库1  数据库2 		//多个库  -B db1 db2 db3 
+
+
+		恢复命令格式
+		]# mysql  -uroot   -p密码  [库名]  <  目录/xxx.sql
+
+备份 192.168.4.50
+[root@host50 ~]# mkdir  /mybak
+[root@host50 ~]# mysqldump -uroot -p123456 --all-databases  > /mybak/alldb.sql
+[root@host50 ~]# mysqldump -uroot -p123456  db1  > /mybak/db1.sql
+[root@host50 ~]# mysqldump -uroot -p123456  db3 user  > /mybak/db3_user.sql
+[root@host50 ~]# mysqldump -uroot -p123456  -B db1 db3  > /mybak/twodb.sql
+[root@host50 ~]# ls /mybak/*.sql
+[root@host50 ~]# scp  /mybak/db1.sql  root@192.168.4.51:/root/
+
+恢复 192.168.4.51
+
+	2.5 完全恢复----mysql命令 51
+[root@host51 ~]# ls /root/*.sql
+
+[root@host51 ~]# mysql -uroot -p123qqq...A 
+mysql> drop database db1;
+mysql> create database db1;
+mysql> exit;
+
+[root@host51 ~]# mysql -uroot -p123qqq...A  db1  < /root/db1.sql
+
+[root@host51 ~]# mysql -uroot -p123qqq...A 
+mysql> use db1;
+mysql> show tables;
+
+
+	[root@host50 ~]# scp /mybak/twodb.sql  root@192.168.4.51:/root/
+	
+	[root@host51 ~]# ls /root/twodb.sql
+	[root@host51 ~]# mysql -uroot -p123qqq...A
+	mysql> drop database db1;
+	mysql> show  databases;
+	mysql> exit ;
+
+	[root@host51 ~]# mysql -uroot -p123qqq...A   < /root/twodb.sql
+	[root@host51 ~]# mysql -uroot -p123qqq...A
+	mysql> show  databases;
+        
+	休息到 17：15 
+
+3 数据增量备份(使用mysql服务的binlog日志实现数据的增量备份与恢复)
+	3.1 binlog日志的使用
+		3.1.1 binlog日志介绍?
+
+		3.1.2 启用binlog日志
+]# vim /etc/my.cnf
+	[mysqld]
+	server_id=50
+	log-bin
+	:wq
+]# systemctl  restart mysqld
+
+]# mysql -uroot -p123456
+mysql> show master status;
+mysql> exit;
+
+]# ls /var/lib/mysql/
+
+[root@host50 ~]# ls /var/lib/mysql/host50*
+/var/lib/mysql/host50-bin.000001  /var/lib/mysql/host50-bin.index
+
+[root@host50 ~]# cat /var/lib/mysql/host50-bin.index 
+./host50-bin.000001
+
+		自定义日志存储目录和日志文件名
+
+]#  vim /etc/my.cnf		
+[mysqld]
+server_id=50
+log-bin=/mylog/plj
+:wq
+
+[root@host50 ~]# mkdir /mylog
+[root@host50 ~]# chown mysql /mylog
+
+[root@host50 ~]# ls -ld /mylog
+drwxr-xr-x 2 mysql root 6 8月   8 17:43 /mylog
+
+[root@host50 ~]# systemctl  restart mysqld
+[root@host50 ~]# ls /mylog/
+plj.000001  plj.index
+
+[root@host50 ~]# mysql -uroot -p123456 
+mysql> show master status;
+
+		3.1.3 手动创建新的binlog日志文件 (4种方法)
+[root@host50 ~]# systemctl  restart mysqld  （1）
+]# ls /mylog/
+
+mysql> flush logs;  （2）
+]# ls /mylog/
+
+[root@host50 ~]# mysql -uroot -p123456  -e "flush logs" （3）
+[root@host50 ~]# mysql -uroot -p123456  -e "show master status"
+
+[root@host50 ~]# mysqldump -uroot -p123456 --flush-logs db3  > /mybak/db3.sql  （4）
+]# ls /mylog/
+[root@host50 ~]# mysql -uroot -p123456  -e "show master status"
+
+3.1.4 删除已有的binlog日志
+			删除指定编号之前的binlog日志文件
+				mysql> purge  master  logs  to "plj.000004";
+
+			删除所有binlog日志，重建新日志
+				mysql> reset master;
+
+		3.1.5 查看binlog日志内容
+			3.1.5.1 查看binlog日志内容
+			  命令格式  ]# mysqlbinlog  目录/binlog日志文件名
+
+mysql> show master status;
+mysql> insert into db3.user(username,uid,gid)values("xxx",1008,1008);
+mysql> insert into db3.user(username,uid,gid)values("xhh",1009,1009);
+mysql> insert into db3.user(username,uid,gid)values("dc",1010,1010);
+mysql> insert into db3.user(username,uid,gid)values("tc",1010,1010);
+mysql> insert into db3.user(username,uid,gid)values("xxc",1011,1011);
+mysql> show master status;
+mysql> select count(*) from db3.user;
+mysql> show master status;
+mysql> insert into db3.user(username,uid,gid)values("cc",1012,1012);
+mysql> show master status;
+
+]# mysqlbinlog  /mylog/plj.000001		
+
+练习到 09：42 
+
+[root@host50 ~]# scp  /mylog/plj.000001   root@192.168.4.51:/root/
+		
+			3.1.5.2 使用binlog日志恢复数据
+				1 命令格式
+			        ]# mysqlbinlog 目录/日志文件  | mysql -uroot -p密码
+
+				2 使用日志恢复数据练习				
+[root@host51 ~]# mysql -uroot -p123qqq...A -e "select count(*) from db3.user"
+[root@host51 ~]# mysqlbinlog /root/plj.000001
+
+[root@host51 ~]# mysqlbinlog /root/plj.000001  | mysql -uroot -p123qqq...A
+
+[root@host51 ~]# mysql -uroot -p123qqq...A -e "select count(*) from db3.user"
+[root@host51 ~]# mysql -uroot -p123qqq...A -e "select * from db3.user"
+[root@host51 ~]# mysql -uroot -p123qqq...A -e "select * from db3.user where id>27"
+
+	3.2 使用binlog日志恢复指定范围内的数据
+			3.2.1 修改日志格式
+				 1 日志格式类型?
+				 2 查看默认使用的日志格式
+mysql> show variables like "binlog_format";
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| binlog_format | ROW   |
++---------------+-------+
+
+				 3 修改日志格式
+]# vim /etc/my.cnf
+[mysqld]
+binlog_format="mixed"
+:wq
+
+[root@host50 ~]# systemctl  restart mysqld
+[root@host50 ~]# mysql -uroot -p123456
+mysql> show variables like "binlog_format";
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| binlog_format | MIXED |
++---------------+-------+
+mysql> reset master;
+mysql> show master status;
+mysql> insert into  db3.user(username) values("aliceA");
+mysql> insert into  db3.user(username) values("aliceB");
+mysql> delete from db3.user where username like 'alice%';
+mysql> show master status;
+mysql> exit;
+]# mysqlbinlog  /mylog/plj.000001  | grep -i  insert 
+]# mysqlbinlog  /mylog/plj.000001  | grep -i  delete
+ 
+			3.2.2 日志文件如何区分记录的多条sql命令
+				偏移量
+				时间点
+
+		3.2.1 命令格式
+		]# mysqlbinlog  选项  目录/日志文件名  | mysql  -uroot  -p密码
+		偏移量
+	--start-position=1054  --stop-position=2098
+		时间点
+	--start-datetime="yyyy-mm-dd hh:mm:ss"  --stop-datetime="yyyy-mm-dd hh:mm:ss"	
+	
+		3.2.2 使用日志恢复数据练习  练习到 10：55 
+[root@host50 ~]# scp /mylog/plj.000001  root@192.168.4.51:/opt/
+
+[root@host51 ~]# mysqlbinlog  /opt/plj.000001
+
+
+[root@host51 ~]# mysql -uroot  -p123qqq...A -e "select count(username) from db3.user"
+
+[root@host51 ~]# mysqlbinlog --start-position=325  --stop-position=788 /opt/plj.000001 | mysql -uroot  -p123qqq...A
+
+[root@host51 ~]# mysql -uroot  -p123qqq...A -e "select count(username) from db3.user"
+
+[root@host51 ~]# mysql -uroot  -p123qqq...A -e "select username from db3.user where username  like 'alice%'"
+
+
+
+
+

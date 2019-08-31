@@ -1,0 +1,23 @@
+第9天
+1.MHA工作原理
+MHA Manager定时探测集群中的master节点,当master出现故障时,自动将拥有最新数据的slave提升为新的master,然后将所有其他的slave重新指向新的master.整个故障转移过程对应用程序完全透明.
+
+2.主从同步三种同步模式名字以及区别
+	异步模式       主库执行完一次事务后,立即将结果返回给客户端,并不关心从库是否已经接收并处理.
+	全同步模式   当主库执行完一次事务,且所有从库都执行了该事务之后才将结果返回给客户端
+	半同步模式    介于异步复制和全同步复制之间
+			      主库在执行完一次事务后,等待至少一个从库接收到并写到relay log中才将结果返回给客户端
+
+3.生成公私钥以及免密登录的命令
+	ssh-keygrn
+	ssh-copy-id IP
+
+4.如何开启半同步复制
+	命令行加载插件
+	install plugin rpl_semi_sync_master soname "semisync_master.so";   //主服务器上执行
+	install plugin rpl_semi_sync_slave soname "semisync_slave.so";  //从服务器执行
+5.配置临时vip的命令
+	ifconfig eth0:1 IP
+
+
+

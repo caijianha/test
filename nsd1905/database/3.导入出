@@ -1,0 +1,374 @@
++++++RDBMS1_DAY03
+1 数据导入导出
+	1.1.数据导入与导出默认检索路径
+	    查看
+		mysql> show variables like  "%file%";
+		mysql> show variables like  "secure_file_priv";
+		mysql> system ls /var/lib/
+		mysql> system ls /var/lib/mysql-files/
+
+	    修改
+		]#vim /etc/my.cnf
+		  [mysqld]
+		  secure_file_priv="/myload"
+		:wq
+
+		]# mkdir /myload
+		]# chown mysql /myload
+		
+		]# systemctl restart mysqld
+		]# mysql -uroot -ptarena
+		mysql> show variables like  "secure_file_priv";
+
+	1.2.数据导入
+		什么数据导入:把系统文件内容存储到数据库服务器的表里
+
+		命令格式 mysql> 
+		 load  data  infile "目录/文件名"  into  table  库.表
+		 fields terminated by "符号" lines terminated by "\n" ;
+
+		例子 把系统用户信息/etc/passwd 存储到db3库下的user 表里
+
+			数据导入步骤：
+				建库
+				建表（表结构根据文件内容创建）
+				把文件拷贝到检索目录下
+				导入数据
+				添加行号字段
+				查看数据
+mysql> create database db3;
+
+mysql> create table db3.user(
+    -> username char(50),
+    -> password char(1),
+    -> uid int,
+    -> gid  int ,
+    -> comment  varchar(150),
+    -> homedir  char(150),
+    -> shell  char(50)
+    -> );
+
+mysql> select  * from db3.user;
+
+mysql> desc db3.user;
++----------+--------------+------+-----+---------+-------+
+| Field    | Type         | Null | Key | Default | Extra |
++----------+--------------+------+-----+---------+-------+
+| username | char(50)     | YES  |     | NULL    |       |
+| password | char(1)      | YES  |     | NULL    |       |
+| uid      | int(11)      | YES  |     | NULL    |       |
+| gid      | int(11)      | YES  |     | NULL    |       |
+| comment  | varchar(150) | YES  |     | NULL    |       |
+| homedir  | char(150)    | YES  |     | NULL    |       |
+| shell    | char(50)     | YES  |     | NULL    |       |
++----------+--------------+------+-----+---------+-------+
+
+mysql> system cp /etc/passwd  /myload/
+mysql> system ls /myload
+
+mysql> load  data  infile  "/myload/passwd" into table db3.user
+    -> fields terminated by ":" lines terminated by "\n";
+
+mysql> alter table  db3.user  
+    -> add
+    -> id int primary key auto_increment first;
+
+
+mysql> select  * from db3.user;
+mysql> select  * from db3.user where id=1;
+mysql> select  * from db3.user where id=10;
+
+	1.3.数据导出
+		什么数据导出? 把表记录保存到系统文件里
+
+		命令格式 mysql>
+select 查询命令 into outfile "目录/文件名";
+
+select 查询命令 into outfile "目录/文件名" fields terminated by "符号";
+
+select 查询命令 into outfile "目录/文件名" fields terminated by "符号" lines  terminated by "符号";
+		 
+
+		例子
+mysql> select  * from db3.user where id=1  into outfile "/myload/user1.txt";
+mysql> system  cat  /myload/user1.txt 
+
+mysql> select * from db3.user where id<=2  into outfile  "/myload/user3.txt";
+mysql> system  cat /myload/user3.txt
+
+mysql> select  username ,homedir , shell  from db3.user where id <= 2  
+into outfile  "/myload/user4.txt"  
+fields terminated by "#"  lines terminated by "!!!";
+
+mysql> system cat /myload/user4.txt
+
+	  练习到10：47 
+
+2 管理表记录
+	2.1 添加记录 insert into （新添加的记录追加在记录末尾）
+		添加1条记录给所有列赋值
+insert   into   表名  values (字段值列表)；
+
+		添加多条记录给所有列赋值
+
+insert   into   表名  values (字段值列表),(字段值列表),(字段值列表)；
+
+		添加1条记录给指定的列赋值
+
+insert   into   表名(字段名列表) values (字段值列表);
+
+		添加多条记录给指定的列赋值
+		
+insert   into   表名(字段名列表) values (字段值列表),(字段值列表);
+
+
+mysql> insert into db3.user(username,password,uid,gid,comment,homedir,shell)
+    -> values
+    -> ("yaya100","x",1000,1000,"","/home/yaya100","/bin/bash");
+
+mysql> select  * from  db3.user where  username = "yaya100" ;
+
+休息到 11：20
+
+
+	2.2 查询记录 select
+		select  字段名列表 from  表名 [  where  条件 ]；
+
+		select  * from 表名；
+
+	mysql> select  * from db3.user;
+
+	mysql> select  * from db3.user where  id  <= 10 ;
+
+	mysql> select  username , uid  from db3.user where  id  <= 10 ;	
+
+
+	2.3 更新记录 update  (修改记录字段的值)
+		update 库.表  set  字段名=值 ， 字段名=值 [ where 条件 ]；
+
+	mysql> update db3.user set password="A",comment="student user" ;
+	mysql> select password , comment from db3.user;
+
+	mysql> update db3.user set password="x", comment="root" 
+               where username="root";
+
+	mysql> select password , comment from db3.user;
+
+	mysql> select password , comment from db3.user 
+	       where username="root";
+
+	2.4 删除记录 delete (以行为单位删除)
+		delete from  库.表 [ where  条件 ]；
+		mysql> delete from db3.user where username="yaya100";
+		mysql> select * from db3.user where username="yaya100";
+
+3 匹配条件 
+	3.1 基本匹配条件(适用于 select 、 update 、 delete 记录 操作) 
+		数值比较 > >=  <  <=  =  !=
+mysql> select username,uid,gid  from db3.user  where uid = 0;
+
+mysql> select username,uid,gid  from db3.user  where uid = gid;
+
+mysql> select username,uid,gid  from db3.user  where uid != gid ;
+
+mysql> select username,uid,gid  from db3.user  where uid > gid;
+
+mysql> select * from db3.user  where id <= 10;
+
+		字符比较  =    !=
+
+mysql> select username  from db3.user where  shell = "/bin/bash";
+mysql> select username , shell  from db3.user where  shell != "/bin/bash";
+
+
+		范围匹配
+in  (值列表) 	在…里…
+not  in  (值列表)	不在…里…
+between 数字 and  数字	在…之间…
+distinct  字段名	去重显示
+
+mysql> select username from db3.user 
+where username in  ("sync","daemon","apache","mysql");
+
+mysql> select username ,shell from db3.user 
+where shell not in  ("/bin/bash","/sbin/nologin");
+
+mysql> select username  from db3.user where uid  in (0 ,1 ,3 );
+
+
+mysql> select id , username , uid from db3.user 
+where id  between  10 and 20;
+
+mysql> select  distinct  gid from  db3.user;
+mysql> select  distinct  shell from  db3.user;
+
+		匹配空(null) is null
+		匹配非空(不是null) is not null
+
+mysql> insert into db3.user(username,uid) values(null ,1001);
+mysql> insert into db3.user(username,uid) values("null" ,1002);
+mysql> insert into db3.user(username,uid) values("" ,1003);
+
+
+mysql> select username ,uid from db3.user where  username="" ;
+mysql> select username ,uid from db3.user where  username="null" ;
+mysql> select username ,uid from db3.user where  username is null ;
+mysql> select username ,uid from db3.user where  username is not null ;
+
+ 
+		逻辑匹配(多个匹配条件)
+		or	逻辑或   多个匹配条件，某一个条件成立即可
+		and	逻辑与   多个匹配条件，必须同时成立
+
+		!或not 	逻辑非   取反 =  !=  not in  is not null
+
+mysql> select username ,uid  from db3.user where  username="root" and uid=1;
+mysql> select username ,uid  from db3.user where  username="root" or uid=1;
+
+
+	3.2 高级匹配条件(适用于 select 、 update 、 delete 记录 操作)
+		模糊查询 like
+		where 字段名 like  '表达式';
+			_ 表示1个字符
+			% 表示0~n个字符
+mysql> select username from db3.user where username  like '____';
+mysql> select username from db3.user where username  like '___';
+mysql> select username from db3.user where username  like '%a%';
+mysql> select username from db3.user where username  like 'a%';
+mysql> select username from db3.user where username  like '__%__';
+
+		正则匹配 regexp
+		where 字段名 regexp  '正则表达式';
+		元字符   ^   $   .   [ ]   *    |
+
+mysql> select  username from db3.user where  username  regexp  '^a|^t';
+
+mysql> select  username from db3.user where  username  regexp  '[at]';
+
+mysql> select  username from db3.user where  username  regexp  '^[at]';
+
+mysql> insert into db3.user(username)values("yaya7"),("5yaya"),("ya8ya");
+
+mysql> select  username from db3.user where  username  regexp  '[0-9]';
+
+练习10 分钟  到 15:55
+		四则运算 + - * / %
+mysql> alter table db3.user add  
+age  tinyint unsigned default 19 after username;
+
+mysql> select username,2019 - age  start_y  , age from db3.user;
+		
+mysql> select username , uid from db3.user where uid <=5;
+
+mysql> update db3.user  set uid=uid+1  where uid <=5;
+
+mysql> select username , uid from db3.user where uid <=6;
+
+mysql> select username,uid,gid , (uid + gid )/2 pjz  from db3.user 
+where username="bin";
+
+mysql> select username,uid from db3.user where  uid % 2 !=  0 ;
+
+mysql> select username,uid from db3.user where  uid % 2 = 0 ;
+	休息到16：15
+
+	3.3 操作查询结果（对查询后的数据做处理）
+	     3.3.1 聚集函数(mysql服务内置的对数据做统计的命令)
+		avg(字段名)			//统计字段平均值
+		sum(字段名) 			//统计字段之和
+		min(字段名) 			//统计字段最小值
+		max(字段名) 			//统计字段最大值
+		count(字段名) 			//统计字段值个数
+mysql> select min(uid) from  db3.user;
+mysql> select max(uid) from  db3.user;
+mysql> select sum(uid) from  db3.user;
+mysql> select avg(uid) from  db3.user;
+
+mysql> select uid from  db3.user where uid >=10 and uid<=20;
+mysql> select min(uid) from  db3.user where uid >=10 and uid<=20;
+
+mysql> select  * from db3.user;
+mysql> select  count(*) from db3.user;
+
+mysql> select  username from db3.user where shell="/sbin/nologin";
+mysql> select  count(username) from db3.user where shell="/sbin/nologin";
+
+
+	3.3.2 查询结果排序 order by 字段名 asc|desc;
+
+mysql> select username ,uid from db3.user where uid <=1000 ; 
+
+mysql> select username ,uid from db3.user where uid <=1000 order by uid ;
+
+mysql> select username ,uid from db3.user where uid <=1000 order by uid desc;
+	
+	3.3.3 查询结果分组 group by  字段名;
+
+mysql> select  shell from  db3.user;
+mysql> select  shell from  db3.user  group by shell;
+
+mysql> select  shell from  db3.user where  uid <=100;
+mysql> select  shell from  db3.user where  uid <=100 group by shell;
+
+mysql> select  distinct shell from  db3.user where  uid <=100;
+
+	3.3.4 查询结果过滤 having 条件；
+
+mysql> select username,uid from db3.user where username is not null;
+
+mysql> select username,uid from db3.user where username is not null 
+having  uid=3;
+
+	3.3.5 限制查询结果显示行数 limit
+		1 只显示查询结果的前几行  limit 数字 ;
+		 			  limit 1;
+					  limit 2;
+mysql> select  * from db3.user ;
+mysql> select  * from db3.user  limit 2;
+mysql> select  * from db3.user  limit 3;
+
+mysql> select username ,uid from db3.user where  id <= 10 ;
+mysql> select username ,uid from db3.user where  id <= 10  limit 1;
+mysql> select username ,uid from db3.user where  id <= 10  limit 2;
+
+
+		2 只显示查询结果指定范围之间的行 limit 数字1 ， 数字2；
+				数字1 显示的起始行
+				数字2 显示的总行数
+				limit 0,3;
+				limit 3,3;
+mysql> select username ,uid from db3.user where  id <= 10;
+
+mysql> select username ,uid from db3.user where  id <= 10 limit 0 ,3 ;
+
+mysql> select username ,uid from db3.user where  id <= 10 limit 2,3;
+
+4 MySQL管理工具
+	4.1 连接mysql服务的方式？				
+	   命令行、使用软件连接（提供图形界面）、连接脚本(php python java)   
+	
+	4.2 安装图形软件管理数据库服务器。
+		常用图形软件有那些？
+		安装phpmyadmin软件
+			]# yum  -y  install httpd  php  php-mysql
+			]# systemctl  start httpd
+			]# systemctl  enable httpd
+
+]# scp /linux-soft/03/mysql/phpMyAdmin-2.11.11-all-languages.tar.gz  root@192.168.4.50:/root/
+
+]# ssh root@192.168.4.50
+]# tar -zxvf phpMyAdmin-2.11.11-all-languages.tar.gz 
+]# mv phpMyAdmin-2.11.11-all-languages /var/www/html/phpmyad
+]# cd /var/www/html/phpmyad
+]# cp config.sample.inc.php  config.inc.php 
+
+[root@localhost phpmyad]# sed -n '31p' config.inc.php 
+$cfg['Servers'][$i]['host'] = 'localhost';
+
+]# vim +17 config.inc.php 
+$cfg['blowfish_secret'] = 'plj123';
+:wq
+
+打开真机浏览器访问50主机软件的网址 http://192.168.4.50/phpmyad
+			用户  root
+			密码  tarena

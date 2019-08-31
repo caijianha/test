@@ -1,0 +1,15 @@
+第6天
+1. iptables 4表5链, 中文和英语都写
+
+2. 查看规则列表并有数字显示行号
+iptables -nL
+
+3. 拒绝192.168.1.0/24ssh登录本机
+iptables -t filter -I INPUT -s 192.168.1.0/24 -p tcp --dport 22 -j REJECT
+
+4. 只允许MAC为 00:0C:29:74:BE:21的访问80端口
+iptables -t filter -I INPUT -s 0.0.0.0/24 -p tcp --dport 80 -j DROP
+iptables -t filter -I INPUT -p tcp --dport 80 -m mac --macsource ..  -j ACCEPT
+5. 共享动态IP地址实现上网, 提示 MASQUERADE.
+
+

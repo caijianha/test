@@ -1,0 +1,244 @@
++++++security_day03
+1 Linux基本防护
+	1 系统账户安全
+	2 文件安全
+
+	RHEL5 / RHEL6     chkconfig  httpd  on|off
+			  service  httpd start|stop|restart|status
+
+	RHEL7             systemctl  enable|disable  httpd
+			  systemctl start|stop|restart|status  httpd	
+
+	休息到 10：15
+
+2 用户切换与提权
+	2.1 用户切换 su
+
+		su   -  用户  切换用户的同时把系统环境也切换到目标用户
+
+		su      用户  仅切换用户不切换到目标用户的系统环境
+
+	2.2 提权(sudo) : 系统的管理员root用户,配置系统的普通用户 有执行自身命令的权限。
+		主配置文件 /etc/sudoers
+
+		打开文件           visudo  或  vim  /etc/sudoers   :wq!
+	
+		提权格式
+			普通用户名  主机名列表=命令列表  （必须写命令的绝对路径）
+			%用户组名   主机名列表=命令列表  （必须写命令的绝对路径）
+
+		普通用户执行提权命令 sudo  提权命令
+
+		普通用户可以执行提权命令 sudo -l  (必须输入自己登陆系统的密码才能够查看)
+
+使用50主机的dc用户连接50主机后,可以管理50主机的mysql数据库服务（修改配置文件及服务的停止与启动操作）
+
+[root@host50 ~]# useradd dc
+[root@host50 ~]# echo 123456  | passwd --stdin dc
+
+]# vim  /etc/sudoers
+dc      localhost,host50=/usr/bin/systemctl *  mysqld , /usr/bin/vim /etc/my.cnf
+:wq!
+ 
+[root@room9pc17 ~]# ssh dc@192.168.4.50
+]$ sudo  -l
+
+		启用日志文件，记录用户的提权操作
+		[root@host50 ~]# vim  /etc/sudoers
+			Defaults  logfile="/var/log/sudo.log"
+		:wq!
+
+[dc@host50 ~]$ sudo systemctl restart mysqld
+
+[root@host50 ~]# cat  -b   /var/log/sudo.log
+     1	Aug 24 14:18:56 : dc : TTY=pts/1 ; PWD=/home/dc ; USER=root ; COMMAND=list
+     2	Aug 24 14:19:08 : dc : TTY=pts/1 ; PWD=/home/dc ; USER=root ;
+     3	    COMMAND=/bin/systemctl restart mysqld
+[root@host50 ~]#
+
+		使用别名做用户提权 （别名名称必须使用大写字母定义）
+			User_Alias  定义用户别名
+			Host_Alias  定义主机别名
+			Cmnd_Alias 定义命令别名
+
+Host_Alias  MYSER=localhost,host50
+Cmnd_Alias  MYCMD=/usr/bin/rpm , /usr/bin/yum
+
+
+mike    MYSER=/sbin/* , !/sbin/ifconfig eth0 , MYCMD
+dc      MYSER=/usr/bin/systemctl *  mysqld , /usr/bin/vim /etc/my.cnf , MYCMD
+
+3、SSH访问控制
+	3.1 服务常用配置项  /etc/ssh/sshd_config
+		port 2222
+		ListenAddr  192.168.4.50
+
+	3.2 黑白名单（目标服务器的ssh服务运行，允许客户端使用本机的所有用户连接ssh服务）
+		白名单 : 仅仅 允许使用白名单列表里的用户连接ssh服务
+		AllowUsers	root@192.168.4.254   mike 
+
+
+		黑名单 仅仅不允许黑名单列表里的用户 连接ssh服务
+		DenyUsers       mike  root@192.168.4.254
+
+		练习到 16：05
+		休息到 16：20
+
+	3.3 ssh服务认证登陆（口令 、密钥对）
+		 65 PasswordAuthentication yes 口令
+
+		 43 PubkeyAuthentication yes
+		 47 AuthorizedKeysFile      .ssh/authorized_keys
+
+			[root@host50 ~]# rm -rf  ~/.ssh
+			[root@host50～]# vim  /etc/ssh/sshd_config
+				#port 2222
+				#ListenAddr  192.168.4.50
+				#DenyUsers       mike  root@192.168.4.254
+				:wq
+			[root@host50～]# systemctl  restart sshd
+
+			[root@room9pc17 ~]# rm -rf ~/.ssh
+			[root@room9pc17 ~]# ssh-keygen			
+			[root@room9pc17 ~]# ls ~/.ssh
+			id_rsa  id_rsa.pub
+			[root@room9pc17 ~]# ssh-copy-id   root@192.168.4.50
+
+			[root@room9pc17 ~]# ssh root@192.168.4.50
+			[root@host50 ~]# ls ~/.ssh
+			authorized_keys
+
+			[root@host50 ~]# vim /etc/ssh/sshd_config
+			PasswordAuthentication no
+			:wq
+			[root@host50 ~]# systemctl  restart sshd
+			[root@host50 ~]# exit
+			[root@room9pc17 ~]# ssh dc@192.168.4.50
+			Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
+
+			[root@host59 ~]# rm -rf ~/.ssh
+			[root@host59 ~]# mkdir ~/.ssh
+[root@host59 ~]# scp root@192.168.4.254:/root/.ssh/id_rsa /root/.ssh/
+[root@host59 ~]# ls ~/.ssh
+id_rsa  known_hosts
+[root@host59 ~]# ssh  root@192.168.4.50
+				
+			  休息到 17：20 
+
+4、SElinux
+	4.1 SELinux概述 ?
+	4.2 查看安全上下文 -Z
+		文件
+		目录
+		进程
+  809  ls  -lZ /etc/hosts
+  810  ls  -l /etc/hosts
+  811  ls  -lZ /etc/passwd
+  812  ls -ld /etc
+  813  ls -ldZ /etc
+  814  ls -ldZ /
+  815  ls -ldZ /sbin
+  821  netstat -utnlp  | grep  :80
+  822  ps aux  | grep httpd
+  823  ps aux -Z | grep httpd
+
+用户:角色:访问类型:选项...	
+system_u:object_r:net_conf_t:s0 
+system_u:object_r:root_t:s0
+system_u:system_r:virt_qemu_ga_t:s0
+system_u:system_r:httpd_t:s0 
+
+一般操作规律
+	移动的文件，原有的上下文属性不变
+        创建或复制的文件，自动继承目标位置的上下文
+
+	4.3 修改访问类型
+		]# chcon  -t  访问类型  目录/文件名
+		]# chcon  -t  httpd_sys_content_t /var/www/html/a1.html 
+		]# chcon  -R -t  访问类型  目录名
+		]# chcon  -R -t  httpd_sys_content_t /var/www/html
+        4.4 恢复访问类型
+		]# restorecon 目录/文件名
+		]# restorecon  /var/www/html/a1.html 
+		]# restorecon  -R 目录名
+		]# restorecon /var/www/html
+
+]# vim /root/a1.html
+aaaaa
+bbbbb
+:wq
+]# vim /root/b2.html
+BBBBB
+:wq
+]# mv  /root/b2.html   /var/www/html
+]# mv  /root/a1.html   /var/www/html
+]# ls -lZ  /var/www/html/*.html
+]# chcon -t  httpd_sys_content_t /var/www/html/b2.html
+]# restorecon /var/www/html/a1.html
+
+	自动还原所有文件的访问类型
+	  ]# touch /.autorelabel
+	  ]# reboot
+
+	4.5 调整SELinux布尔值（功能开关）
+		1 查看SELinux布尔值
+		   ]# getsebool -a
+		   ]# getsebool -a | grep  ftpd
+		   ]# getsebool -a | grep  httpd
+
+		2 修改SELinux布尔值
+		   ]# setsebool -P 布尔值  on |off
+
+在50主机运行ftp服务,要求如下：允许匿名用户 对/var/ftp/share目录有上传和下载文件的权限。
+
+]# yum  -y  install vsftpd
+]# systemctl start  vsftpd
+
+]# mkdir /var/ftp/share
+]# chmod  o+w /var/ftp/share
+
+]# vim  +29 /etc/vsftpd/vsftpd.conf
+29 anon_upload_enable=YES
+:wq
+]# systemctl  restart vsftpd
+
+]# cp /etc/passwd  /var/ftp/share/
+
+[root@host50 ~]# setsebool  -P ftpd_anon_write on
+[root@host50 ~]# setsebool  -P ftpd_full_access on
+[root@host50 ~]# 
+[root@host50 ~]# getsebool  -a | grep ftpd
+
+	4.6 查看SElinux日志排错
+		]# vim  +42  /etc/httpd/conf/httpd.conf
+			Listen 8070
+		:wq
+
+		]# systemctl  restart httpd
+Job for httpd.service failed because the control process exited with error code. See "systemctl status httpd.service" and "journalctl -xe" for details.
+		]# yum -y  install setroubleshoot*
+		]# reboot
+		]# systemctl  restart httpd
+		]# grep  setroubleshoot /var/log/messages
+		]# grep  setroubleshoot /var/log/messages | tail -1
+
+[root@host50 ~]# grep  setroubleshoot /var/log/messages | tail -1
+Aug 26 10:35:53 localhost setroubleshoot: SELinux is preventing /usr/sbin/httpd from name_bind access on the tcp_socket port 8070. For complete SELinux messages run: sealert -l 2b33c3ec-5f36-40b3-92aa-814a7b7f24d1
+[root@host50 ~]# 
+[root@host50 ~]# sealert -l 2b33c3ec-5f36-40b3-92aa-814a7b7f24d1
+
+]# semanage port -a -t http_port_t -p tcp 8070
+
+]# systemctl  restart httpd
+]# netstat -utnlp | grep  :8070
+	
+
+
+
+
+
+
+
+
+
+

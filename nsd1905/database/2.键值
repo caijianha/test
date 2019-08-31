@@ -1,0 +1,302 @@
+
+++++RDBMS1_DAY02
+1、表结构
+	1.1 约束条件 :作用是限制如何给字段赋值
+	NULL 是否允许为空null 默认允许  null
+			 不允许为空 not null	
+			 不定义时没有键值
+	key 键值类型：
+	普通索引 index
+	唯一索引 unique
+	主    键 primary key
+	外    键 foreign key
+	全文索引 fulltext
+	
+	DEFAULT 默认值：不给字段赋值使用默认值赋值 
+		默认不定义时 是 null
+		定义 		default  值  （要与字段类型匹配）
+
+	Extra 额外设置 默认都没有额外设置
+
+
+create database db2;		
+create table  db2.t1( 
+name  char(10) not null default "",
+age	tinyint  unsigned  default 19,
+sex	enum("m","w") not null  default "m"
+);
+mysql> desc db2.t1;
+mysql> insert into  db2.t1(name)values("bob");
+mysql> insert into  db2.t1  values("lucy",21,"w");
+mysql> select  * from db2.t1;
+mysql> insert into  db2.t1  value(null , null , null );
+mysql> insert into  db2.t1  value(null, null , null );
+mysql> insert into  db2.t1  value("null", null , null );
+mysql> insert into  db2.t1  value("null", null , "w" );
+mysql> select  * from db2.t1;
+
+
+	1.2 修改表结构
+		命令 alter table 库名.表名 执行动作；
+
+		执行动作：
+			add 添加新字段 
+				   add 字段名 类型 [约束条件]；
+				   add 字段名 类型 [约束条件] after 字段名；
+				   add 字段名 类型 [约束条件] first;
+
+mysql> alter table  db2.t1  add email varchar(50);
+mysql> desc db2.t1;
+mysql> select  * from db2.t1;
+
+mysql> alter table t1 add likes set("eat","drink","game","happy") 
+not null default "eat,drink" after age;
+mysql> desc db2.t1;
+mysql> select  * from db2.t1;
+
+mysql> alter table  db2.t1 add  class char(7) default "nsd1905" first;
+mysql> desc db2.t1;
+mysql> select  * from db2.t1;
+			
+
+			modify 修改字段类型
+
+alter  table  库名.表名 modify  字段名  类型(宽度) 约束条件 [after 字段名|first ];
+
+mysql> alter table  db2.t1  modify 
+          age tinyint unsigned Default 19 after class;
+
+mysql> alter table  db2.t1  modify  
+	  name varchar(15) not null default "" ;
+
+
+			change 修改字段名
+alter  table  库名.表名 change 源字段名  新字段名  类型(宽度)  约束条件；
+
+mysql> alter table  db2.t1 change email  mail  varchar(50) ;
+mysql> desc  db2.t1;
+
+			drop 删除字段
+alter  table  库名.表名 drop 字段名;
+
+			mysql> alter table  db2.t1 drop  mail;
+			mysql> desc db2.t1;
+			mysql> select  * from  db2.t1;
+
+			rename 修改表名
+alter  table  库名.表名 rename 库名.新表名；
+			mysql> use db2;
+			mysql> show tables;
+			mysql> alter table  db2.t1 rename db2.stuinfo; 
+			mysql> show tables;
+			mysql> select  * from stuinfo;
+
+
+2、MySQL 键值
+	2.1 键值种类
+		普通索引 index ***
+		唯一索引 unique
+		主    键 primary key ***
+		外    键 foreign key ***
+		全文索引 fulltext
+
+	2.2 索引介绍 ? 
+
+	2.3 普通索引index 的使用
+		1 使用规则? 
+		2 创建索引： 
+			1 建表时创建索引
+			  create table 库.表(
+			   字段列表，
+			    index(字段名)，
+			    index(字段名)
+			   );
+
+mysql> create table db2.t2 (
+    -> name char(10),
+    -> age int,
+    -> class  char(7),
+    -> email char(30),
+    -> index(name),index(age)
+    -> );
+			2 在已有表里创建索引
+				create  index  索引名 on  表名(字段名);
+			mysql> desc  db2.stuinfo;
+			mysql> create index  xxx on  db2.stuinfo(name);
+			mysql> create index  sex on  db2.stuinfo(sex);
+			mysql> desc  db2.stuinfo;
+			mysql> show index from  db2.stuinfo\G;
+			
+			3 查看索引字段
+				基本查看  desc 表名；key列
+					mysql> desc db2.t2;
+
+				详细查看 show   index  from  表名 \G;
+					mysql> show index  from  db2.t2 \G;
+
+			4 删除索引
+			  drop  index  索引名  on  库.表名;
+				mysql> drop index  age on  db2.t2;
+				mysql> desc db2.t2;
+				mysql> show index  from  db2.t2 \G; 
+
+			
+	2.2 主键primary key 的使用
+		1 使用规则 ?
+		2 创建主键
+			2.1 建表时创建主键
+			
+mysql> create table t3( name  char(10)  primary key , age int );
+mysql> create table t4( name  char(10) , age int , primary key(name) );
+mysql> desc t3;
+mysql> desc t4;
+
+mysql> insert into  t3 values ("bob", 19);
+mysql> insert into  t3 values ("bob", 21);
+mysql> insert into  t3 values (null, 17);
+mysql> insert into  t3 values ("tom", 17);
+mysql> select  * from t3;
+
+			2.2 在已有表里创建主键
+			alter  table  库.表  add  primary key (字段名);
+
+mysql> desc  db2.stuinfo;
+mysql> alter table  db2.stuinfo  add  primary  key (name);
+mysql> desc  db2.stuinfo;
+
+			2.3 复合主键:表中多列一起做主键
+				     插入记录时多列的值不允许同时重复
+
+create table db2.t5(
+class  char(7),
+name   char(10),
+money   enum("no","yes"),
+primary key(class,name)
+);
+
+desc db2.t5;
+
+mysql> insert into db2.t5 values("nsd1905","bob","yes");
+mysql> insert into db2.t5 values("nsd1905","bob","yes"); 报错
+mysql> insert into db2.t5 values("nsd1905","bob","no"); 报错
+mysql> insert into db2.t5 values("nsd1906","bob","yes");
+mysql> insert into db2.t5 values("nsd1906","tom","no");
+mysql> select  * from  db2.t5;
+
+			2.3 删除主键
+			alter table  库.表 drop  primary key;
+			mysql> alter table  db2.t5 drop  primary key;
+			mysql> desc db2.t5;
+
+			2.4 在已有表里创建主键
+			alter table  库.表 add  primary key(字段名)；
+			alter table  库.表 add  primary key(字段名列表)；
+
+mysql> alter table db2.t5 add stu_num char(9) first;
+mysql> delete from  db2.t5;
+mysql> select  * from db2.t5;
+mysql> show tables;
+mysql> desc db2.t5;
+mysql> alter table db2.t5 add  primary key (stu_num , class , name);
+mysql> desc db2.t5;
+
+			2.5  主键与auto_increment 连用
+					自增长
+
+create table  db2.t6(
+stu_num  int  primary key  auto_increment,
+name char(10),
+age int
+);
+
+mysql> desc db2.t6;
+mysql> insert into  db2.t6 (name,age) values("bob",19);
+mysql> insert into  db2.t6 (name,age) values("tom",19);
+mysql> insert into  db2.t6 (name,age) values("lucy",19);
+mysql> select  * from db2.t6;
+
+
+mysql> insert into  db2.t6  values(9,"alice",18);
+mysql> select  * from db2.t6;
+
+mysql> insert into  db2.t6 (name,age) values("jerry",18);
+mysql> select  * from db2.t6;
+
+
+mysql> delete from  db2.t6;
+mysql> insert into  db2.t6 (name,age) values("jerry",18);
+mysql> select  * from  db2.t6;
+
+mysql> insert into  db2.t6  values(null, "lilei",17);
+mysql> select  * from  db2.t6;
+
+		2.3 foreign key 外键
+			作用：向表中插入记录时，字段的值在另外一张表字段值里选择。
+
+			外键使用规则？
+				create table  xxx (........)engine=innodb;
+
+			创建外键的命令格式：
+				create table 库.表 (
+					字段列表，
+					foreign   key(字段名) references 库.表(字段名) 
+					on  update  cascade    on delete  cascade
+				)engine=innodb;
+
+
+
+use db2;
+
+create table ygb(  
+yg_id  int  primary key  auto_increment,
+name  char(20),
+sex   enum("boy","girl")	
+)engine=innodb;
+
+insert into db2.ygb(name,sex)values("bob","boy");
+insert into db2.ygb(name,sex)values("lucy","girl");
+select  * from db2.ygb;
+
+create table  gzb(   
+gz_id int,
+pay float(7,2),
+foreign key(gz_id) references ygb(yg_id) on update cascade 
+on delete cascade )engine=innodb;
+
+show create table gzb;
+
+insert into gzb values(1,10000);
+insert into gzb values(2,20000);
+insert into gzb values(3,25000); 报错
+
+update  ygb  set  yg_id=8  where yg_id=2;
+select  * from ygb;
+select  * from gzb;
+
+delete from ygb where yg_id=8;
+select  * from ygb;
+select  * from gzb;
+
+alter table  gzb  add primary key(gz_id);
+	
+		删除外键
+		    show  create table gzb;
+		    alter table gzb drop foreign key gzb_ibfk_1;
+		    show  create table gzb;
+insert into gzb values(8,20000);
+insert into gzb values(7,20000);
+select  * from  gzb;
+select  * from  ygb;
+
+alter table studentdb.stuinfo  add  id int(2) zerofill  primary key auto_increment first;    //在首列添加一列id int(2) zerofill  primary key auto_increment
+
+create unique index stu_id on stuinfo(stu_id); //把stuinfo(stu_id)中的索引变为unique(唯一索引) index(普通索引)
+
+first(在第一列前面)
+after(在X后面添加)   不做操作默认最后一列
+
+
+
+
+
+

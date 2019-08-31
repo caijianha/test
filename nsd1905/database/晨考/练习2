@@ -1,0 +1,37 @@
+在数据库服务器192.168.4.50上做如下:
+1、修改数据库管理员从本机登录的密码为plj666, 数据库管理员使用新密码从本机连接数据库服务器
+	alter user root@"localhost" identified by "plj666";
+2、查看当前登陆数据库服务器的用户是谁？
+	select user();
+3、查看当前登陆数据库服务器用户的权限？
+	show grants;
+4、查看当前数据库服务器有哪些授权用户?
+	select host,user from mysql.user;
+5、授权管理员用户root可以在网络中的192.168.4.254主机登录，对所有库和表有完全权限且有授权的权限 登陆密码tarena
+	grant all on *.* to root@"192.168.4.254" identified by "tarena";
+6、不允许数据库管理员root在数据库服务器本机登录。
+	delete from mysql.user where host in (“::1”,”127.0.0.1”,”localhost”,”stu.tedu.cn”) and user=”host”;flush privileges;
+7、授权yaya108用户可以从网络中的任意主机访问数据库服务器，仅对对userdb库下的user表有查看记录、更新name字段的权限 ，  
+   登录密码userweb888。
+	grant select,uadate on userdb.user to yaya@"%" identified by "userweb8";
+8、验证以上授权是否成功
+9、yaya108用户修改自己的登陆密码为123456,并验证能否使用新密码登陆
+10、 数据库管理员修改授权用户yaya的登录密码为654321，让授权用户yaya 使用新密码登陆数据库服务器。
+	alter user yaya@"%" identified by "654321";
+11、撤销授权用户yaya108 的所有授权并 使其不再能使用此用户连接数据库服务器。
+	revoke all on  *.* from  yaya@"%";
+	drop user yaya@"%"; 
+12、授权webadmin用户可以从网络中的所有主机登录，对bbsdb库拥有完全权限，且有授权权限，登录密码为 123456
+	grant  all on  bbsdb.*  to web@"%" identified by "123qqq...A" 
+with grant option;
+13、在客户端使用授权用户webadmin登录，把自己的权限授权给userone用户 ， 登录密码是  123456
+	grant  all on  bbsdb.*  to user@"%" identified by "123qqq...A" 
+with grant option;
+14、撤销webadmin用户的授权权限。
+	revoke  grant option  on  *.* from  mydba@"%"; //删除创建其他用户访问权限
+15、授权数据库管理员可以在本机连接数据库服务。
+	
+16、不允许主机192.168.4.254使用root用户连接数据库服务器192.168.4.50
+	
+	
+

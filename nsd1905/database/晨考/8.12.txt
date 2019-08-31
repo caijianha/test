@@ -1,0 +1,34 @@
+第6天
+1.配置MySQL主从同步,MySQL50服务器为主库, MySQL51为从库.  (2分)
+50:vim  /etc/my.cnf
+	[mysqld]
+	server_id=50
+	log-bin=master50
+50:systemctl restart mysqld
+50:mysql>  grant replication slave on *.* to reoluser@"%" identified by "123qqq...A";
+
+51:vim /etc/my.cnf
+	[mysqld]
+	server_id=51
+51: systemctl restart mysqld
+51: mysql -uroot -p123qqq...A
+mysql> change master to master_host="192.168.4.50",
+master_user="repluser",master_password="123qqq...A",
+naster_log_file="master50.000001",master_log_pos=441;
+
+mysql> start slave;
+
+2.主从同步有几个结构?
+一主一从   主从从    主主(互为主从)  一主多从
+
+3.配置主从从结构中, 需要额外再二级主库开启什么配置,为什么.
+log_slave_updates
+
+4.主从同步工作原理
+数据实时同步
+主  启用binlog日志  授权用户  查看binlog日志信息
+从  确保与主服务器数据一致  指定主库信息 启动slave程序  查看状态信息
+
+
+
+

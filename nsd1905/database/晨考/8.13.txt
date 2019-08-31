@@ -1,0 +1,15 @@
+第7天
+1.什么是数据读写分离,好处有哪些?
+把客户端发来的读请求和写请求分别交给不同的数据库服务器处理
+可以减轻单台服务器的压力
+
+2.实现读写分离的中间件有哪些,写出2种以上
+mycat     maxscale    mysql-proxy
+
+3.读写分离中监控用户和路由用户作用分别是什么,以及对应什么权限? (2分)
+监控用户: 区分谁是主库,谁是从库  grant replication slave,replication client on *.*  to sss@"%" identified by "123qqq...A";
+路由用户: 查看数据库访问用户是否存在  grant select on mysql.* to ssss@"%" identified by "123qqq...A";
+
+4.什么是多实例
+在一台服务器上运行多个数据库服务
+

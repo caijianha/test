@@ -1,0 +1,32 @@
+第二天
+
+01. 在DB1库下,创建一个表,名称为t4,要求字段有name(注:要求不能为空),age(注:要求不能为空,默认是25),likes(注:要求是枚举类型,默认爱好任意写).
+create table t4( name char(6) not null, age char(11) not null default 25, likes set("a","b","c") )
+
+02. 在t4表中添加一个字段为'学生编号stu_num'(类型为char),要求在所有字段的最前面;另外在字段'名字'的后面再添加一个字段'班级class'.
+alter table t4 add stu_num char(11) first;
+alter table t4 add class varchar(20) after name;
+
+03. 把t4表中字段'学生编号stu_num'类型改为varchar;字段'年龄age'可以为空,并修改位置到姓名后面.
+alter table t4 modify stu_num varchar(11);
+alter table t4 modify age char(11) after name;
+
+04. 在t4表中删除 '班级class'  '年龄age' 这2个字段; 把命名t4修改成stutab
+alter table t4 drop age;
+alter table t4 drop class;
+alter table t4 rename stutab;
+
+05.在DB1库下,创建t5表,要求字段有名字,班级,学生编号,其中学生编号必须为数值类型,为主键,并可以自动增长.
+> create table t5(
+    -> name char(10) not null,
+    -> class char(11),
+    -> passwd int(11) primary key auto_increment);
+
+
+
+
+
+
+
+
+

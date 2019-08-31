@@ -1,0 +1,115 @@
+++++++++RDBMS2_DAY05
+1 PXC
+	1.1 PXC介绍： mysql服务高可用集群软件
+	1.2 服务器角色
+客户端  50
+数据库服务器  192.168.4.71
+数据库服务器  192.168.4.72
+数据库服务器  192.168.4.73
+
+	1.3 配置主机名映射(3台服务器都要配置)
+]# vim /etc/hosts
+192.168.4.71	pxcnode71
+192.168.4.72	pxcnode72
+192.168.4.73	pxcnode73
+:wq
+
+	1.4 安装软件(3台服务器都要配置)
+		 ]# rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm    //安装依赖
+
+ 		 ]# yum  -y  install  percona-xtrabackup-24-2.4.13-1.el7.x86_64.rpm
+
+                 ]# rpm -ivh qpress-1.1-14.11.x86_64.rpm     //安装依赖
+
+                ]# tar -xvf  Percona-XtraDB-Cluster-5.7.25-31.35-r463-el7-x86_64-bundle.tar
+
+                 ]# yum -y  install  Percona-XtraDB-Cluster-*.rpm
+
+       1.5 修改配置文件 (3台服务器都要配置)
+		]# ls /etc/percona-xtradb-cluster.conf.d/
+			mysqld.cnf  mysqld_safe.cnf  wsrep.cnf
+
+	
+       1.6 启动服务:在1台服务器上执行即可(192.168.4.71)
+		]# systemctl  start mysql@bootstrap.service
+		]# ls /var/lib/mysl/
+
+ 		]# grep pass /var/log/mysqld.log	 //查看数据库管理员初始登录密码
+
+		]# mysql -uroot -p‘A3+=HiEggK>B’	//使用初始密码登录
+mysql> alter  user  root@”localhost”identified by  “123456”; //修改登录密码
+
+mysql> grant reload, lock tables,replication client,process on *.* to sstuser@"localhost” identified by  “123qqq...A; //添加授权用户
+
+
+       1.7 启动数据库服务:在其他2台服务器上执行
+		]#systemctl  start mysql  //启动数据库服务
+		]# ls /var/lib/mysql/
+		]# mysql -uroot -p123456
+		mysql> select user,host from mysql.user where user="sstuser";
+
+]# netstat    -utnlp   |   grep    :3306  
+]# netstat    -utnlp   |   grep   :4567
+	
+     1.8  查看集群信息(可在任意一台数据库服务器执行)
+]# mysql –uroot –p123456
+Mysql> show status like "%wsrep%";
+ 
+
+     1.9 测试配置
+		1.9.1 在任意一台服务器上添加访问数据的授权用户
+[root@pxcnode72 ~]# mysql -uroot -p123456 -e  'grant all on db10.* to yaya10@"%" identified by "123456"'
+
+[root@pxcnode73 ~]# mysql -uroot -p123456 -e ' show grants for yaya10@"%"'
+
+[root@pxcnode71~]# mysql -uroot -p123456 -e ' show grants for yaya10@"%"'
+
+	       1.9.2 在客户端使用授权用户连接任意数据库服务器都可以存储数据，且可以查看到同样的数据
+
+[root@host50 ~]# mysql -h192.168.4.73 -uyaya10 -p123456
+mysql> create table db10.b(id int  primary key auto_increment,name char(10));
+mysql> insert into db10.b (name)values("bob");
+mysql> insert into db10.b (name)values("tom");
+mysql> insert into db10.b (name)values("lucy");
+mysql> select  * from db10.b;
+mysql> exit;
+
+]# mysql -h192.168.4.72 -uyaya10 -p123456 (执行select 和 insert)
+]# mysql -h192.168.4.71 -uyaya10 -p123456 (执行select 和 insert)
+
+	      1.9.2 测试高可用  （时间10 分钟 到 14：34 ）
+			1.9.2.1 任何1台数据库服务器宕机都不影响用户存取数据
+				[root@pxcnode73 ~]# systemctl  stop mysql
+				[root@pxcnode73 ~]# netstat -utnlp  | grep  :3306
+	
+			[root@pxcnode72 ~]# mysql -uroot -p123456
+			mysql>  show status like "%wsrep%";
+
+			
+			50 ]# mysql -h192.168.4.71 -uyaya10 -p123456 (执行select 和 insert)
+ 			50 ]# mysql -h192.168.4.72 -uyaya10 -p123456 (执行select 和 insert)
+
+服务器运行后 自动同步宕机期间的数据
+[root@pxcnode73 ~]# systemctl  start mysql
+[root@pxcnode73 ~]# netstat -utnlp  | grep  :3306
+
+			50 ]# mysql -h192.168.4.73 -uyaya10 -p123456
+			mysql> select  * from db10.b;
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2 MySQL存储引擎
+	知道  了解   懂  精通
+	2.1 MySQL存储引擎? MySQL服务软件自带的功能程序，处理表的处理器
+不同的存储引擎有不同的功能和数据存储方式.
+	2.2 查看表使用的存储引擎 ？
+	2.3 查看数据库服务支持的存储引擎 ？
+	2.4 修改数据库服务默认使用的存储引擎？
+	2.5 建表时指定表使用的存储引擎？
+	2.6 修改表的存储引擎？
+	2.7 常用存储引擎myisam的特点
+	2.8 常用存储引擎innodb的特点
+	锁粒度 、锁类型、事务、事务回滚 、事务的特点ACID
+
+	2.9 建表时，如何决定表使用那种存储引擎？
+		select 操作多的表适合使用 myisam存储引擎 比较节省系统硬件资源
+		insert/update/delete 操作多的表适合使用innodb存储引擎 支持对单张表的并发写

@@ -1,0 +1,58 @@
+`第5天
+1. 什么是审计?
+  (1) 基于事先配置的规则生成日志,记录可能发生在系统上的事件
+  (2) 审计不会为系统提供额外的安全保护,但她会发现并记录违反安全策略的人及其对应的行为
+	日期与时间 事件结果 触发事件的用户 
+	所有认证机制的使用都可以被记录,如ssh  对关键数据文件的修改行为等
+
+2. 设置规则所有对passwd文件的写,属性修改操作都会被记录审计日志的命令
+auditctl -w /etc/passwd -p wa -k passwd
+
+3. 如何隐藏nginx的版本信息?
+vim +48 src/http/ngx_http_header_filter_module.c
+static u_char ngx_http_server_string[] = "Server: Jacob" CRLF;
+static u_char ngx_http_server_full_string[] = "Server: Jacob" CRLF;
+static u_char ngx_http_server_build_string[] = "Server: Jacob" CRLF;
+//修改完成后，再去编译安装Nignx，版本信息将不再显示为Nginx，而是Jacob
+./configure
+ make && make install
+
+4. nginx如何防止DDOS攻击?
+
+3） 限制并发量
+[root@proxy ~]# vim /usr/local/nginx/conf/nginx.conf
+… …
+http{
+… …
+limit_req_zone $binary_remote_addr zone=one:10m rate=1r/s;
+    server {
+        listen 80;
+        server_name localhost;
+        limit_req zone=one burst=5;
+            }
+//备注说明：
+//limit_req_zone语法格式如下：
+//limit_req_zone key zone=name:size rate=rate;
+//上面案例中是将客户端IP信息存储名称为one的共享内存，内存空间为10M
+//1M可以存储8千个IP信息，10M可以存储8万个主机连接的状态，容量可以根据需要任意调整
+//每秒中仅接受1个请求，多余的放入漏斗
+//漏斗超过5个则报错
+Nginx提供了一个ngx_http_limit_req_module模块，可以有效降低DDOS攻击的风险
+
+5. 如何降权启用tomcat服务?
+[root@web1 ~]# chown -R tomcat:tomcat /usr/local/tomcat/
+//修改tomcat目录的权限，让tomcat账户对该目录有操作权限
+[root@web1 ~]# su -c /usr/local/tomcat/bin/startup.sh tomcat
+//使用su命令切换为tomcat账户，以tomcat账户的身份启动tomcat服务
+[root@web1 ~]# chmod +x /etc/rc.local                //该文件为开机启动文件
+[root@web1 ~]# vim /etc/rc.local                     //修改文件，添加如下内容
+su -c /usr/local/tomcat/bin/startup.sh tomcat
+
+
+
+
+
+
+
+
+

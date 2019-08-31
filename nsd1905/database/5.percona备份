@@ -1,0 +1,181 @@
++++++RDBMS1_DAY05
+
+1、percona软件介绍
+	1.1 percona软件介绍
+	1.2 安装软件 192.168.4.50
+[root@room9pc17 ~]# scp /linux-soft/03/mysql/percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm   root@192.168.4.50:/root/
+
+[root@room9pc17 ~]# scp /linux-soft/03/mysql/libev-4.15-1.el6.rf.x86_64.rpm   root@192.168.4.50:/root/
+
+[root@host50 ~]# rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm
+[root@host50 ~]# yum -y install percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm
+
+[root@host50 ~]# rpm -ql percona-xtrabackup-24
+[root@host50 ~]# innobackupex --help
+[root@host50 ~]# man innobackupex
+
+	1.3 命令格式
+		]# innobackupex <选项>
+		命令常用选项?
+		完全备份/恢复命令格式 ?
+		恢复单张表命令格式 ?
+		增量备份/恢复命令格式?
+
+2、innobackupex备份与恢复
+	完全备份/恢复练习
+mysql> create database db5;
+mysql> create table db5.a (id int);
+mysql> create table db5.b (name char(10));
+mysql> insert into db5.a values(100);
+mysql> insert into db5.b values("bob");
+mysql> select count(*) from db5.a;
++----------+
+| count(*) |
++----------+
+|        8 |
++----------+
+1 row in set (0.00 sec)
+
+mysql> select count(*) from db5.b;
++----------+
+| count(*) |
++----------+
+|       10 |
++----------+
+1 row in set (0.00 sec)
+
+	192.168.4.50 完全备份
+		
+[root@host50 ~]# innobackupex --user root  --password  123456  /allbak --no-timestamp
+[root@host50 ~]# ls /allbak
+
+[root@host50 ~]# scp -r /allbak  root@192.168.4.51:/root/
+
+	192.168.4.51 完全恢复
+		1 安装Percona软件
+[root@host50 ~]# scp libev-4.15-1.el6.rf.x86_64.rpm  root@192.168.4.51:/root/
+[root@host50 ~]# scp percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm  root@192.168.4.51:/root/[root@host51 ~]# rpm -ivh  libev-4.15-1.el6.rf.x86_64.rpm
+[root@host51 ~]# yum -y install percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm
+		2 恢复数据，步骤如下：
+			1 停止数据库服务器
+			2 清空数据库目录
+			3 准备恢复数据
+			4 拷贝数据
+			5 修改数据库目录的所有者和组用户为mysql
+			6 启动服务
+			7 管理员登陆查看数据
+  133  systemctl  stop mysqld
+  134  ls /var/lib/mysql
+  135  rm -rf /var/lib/mysql/*
+  137  innobackupex  --apply-log  /root/allbak/
+  138  innobackupex  --copy-back  /root/allbak/	
+  143  chown  -R mysql:mysql /var/lib/mysql
+  145  systemctl  start  mysqld
+  146  netstat -utnlp  | grep  :3306
+  147  mysql -uroot -p123456
+       mysql> show databases;
+       mysql> select  * from  db5.a;
+       mysql> select  * from  db5.b;
+
+[root@host51 ~]# mysql -uroot -p123456
+mysql> use db5;
+mysql> show tables;
+mysql> select  * from a;
+mysql> select  * from b;
+mysql> delete  from b;
+mysql> select  * from b;
+
+	在完全备份文件里，恢复单张表练习；具体操作如下：
+		1 删除表空间 mysql> alter  table  库名.表名  discard  tablespace; 
+		2 导出表信息 ]# innobackupex --apply-log --export   数据完全备份目录
+		3 拷贝表信息文件到数据库目录下
+		4 修改表信息文件的所有者及组用户为mysql
+		5 导入表空间 mysql> alter  table  库名.表名   import  tablespace; 
+		6 删除数据库目录下的表信息文件
+		7 查看表记录
+
+192.168.4.51 :  练习10分钟到 16：00
+mysql> alter  table  db5.b  discard  tablespace; 
+]# innobackupex  --apply-log --export /root/allbak/
+]# cp /root/allbak/db5/b.{cfg,exp,ibd}  /var/lib/mysql/db5/
+]# chown mysql:mysql /var/lib/mysql/db5/b.*
+mysql> alter  table db5.b   import  tablespace; 
+]# rm -rf /var/lib/mysql/db5/b.cfg
+]# rm -rf /var/lib/mysql/db5/b.exp
+mysql> select  * from  db5.b;
+
+	增量备份：备份上次备份后，所有新产生的数据。 
+
+	增量备份/恢复练习
+
+192.168.4.50	
+	首次备份：做完全备份  
+        ]# ls /allbak
+	]# cat /allbak/xtrabackup_checkpoints
+
+mysql> insert into db5.b values("tom");
+mysql> insert into db5.a values(303);
+mysql> select  count(*) from db5.b;
++----------+
+| count(*) |
++----------+
+|       18 |
++----------+
+mysql> select  count(*) from db5.a;
++----------+
+| count(*) |
++----------+
+|       17 |
++----------+
+mysql> 
+
+	增量备份
+[root@host50 ~]# innobackupex --user root --password 123456  --incremental /new1dir --incremental-basedir=/allbak --no-timestamp
+
+[root@host50 ~]# ls /new1dir/
+
+mysql> insert into db5.b values("lucy");
+mysql> insert into db5.a values(408);
+mysql> select  count(*) from db5.b;
++----------+
+| count(*) |
++----------+
+|       29 |
++----------+
+mysql> select  count(*) from db5.a;
++----------+
+| count(*) |
++----------+
+|       27 |
++----------+
+mysql>
+
+	增量备份
+[root@host50 ~]# innobackupex --user root --password 123456 --incremental /new2dir --incremental-basedir=/new1dir  --no-timestamp
+
+[root@host50 ~]# ls /new2dir
+
+[root@host50 ~]# scp -r /allbak/  root@192.168.4.51:/opt/
+[root@host50 ~]# scp -r /new1dir/  root@192.168.4.51:/opt/
+[root@host50 ~]# scp -r /new2dir/  root@192.168.4.51:/opt/
+
+        增量恢复  192.168.4.51
+		准备恢复数据
+[root@host51 ~]# innobackupex  --apply-log  --redo-only /opt/allbak/
+
+[root@host51 ~]# innobackupex  --apply-log  --redo-only  /opt/allbak --incremental-dir=/opt/new1dir
+
+[root@host51 ~]# innobackupex  --apply-log  --redo-only  /opt/allbak --incremental-dir=/opt/new2dir
+
+[root@host51 ~]# cat /opt/allbak/xtrabackup_checkpoints
+
+[root@host51 ~]# systemctl  stop mysqld
+[root@host51 ~]# rm -rf /var/lib/mysql/*
+[root@host51 ~]# innobackupex  --copy-back /opt/allbak/
+[root@host51 ~]# ls /var/lib/mysql
+[root@host51 ~]# chown  -R mysql:mysql /var/lib/mysql
+[root@host51 ~]# systemctl  start mysqld
+[root@host51 ~]# netstat -utnlp  | grep  :3306
+[root@host51 ~]# mysql -uroot -p123456
+mysql> select  * from db5.a;
+mysql> select  * from db5.b;

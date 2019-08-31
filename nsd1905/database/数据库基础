@@ -1,0 +1,162 @@
+真机包位置:/linux-soft/03
+
+RDBMS1	//数据库管理员
+mysql 适用于中小规模,关系型数据库系统
+mysql与mariadb不能共存,理论上来说属于同一个软件
+
+如果本机已经存在mariadb数据库
+systemctl stop mariadb
+rm -rf /etc/my.conf
+rm -rf /var/lib/mysql/*
+rpm -e --nodeps mariadb-server mariadb   //卸载软件包
+清楚数据
+
+装包
+tar -xf 03/mysql/mysql-5.7.17.tar
+yum -y install mysql-community-*.rpm
+rpm -qa | grep -i mysql
+
+systemctl start mysqld		//启服务(进程名也是mysqld 默认端口3306)
+/var/log/mysqld.log		//数据库报错日志
+/var/lib/mysql			//根目录
+
+
+数据库初始密码存放位置(随机生成):/var/log/mysqld.log
+grep 'password' /var/log/mysqld.log		//查看初始密码
+
+连接库命令
+mysql -h数据库地址 -u用户 -p密码
+
+进库修改数据库密码
+alter user root@"localhost" identified by "123qqq...A";	//密码必须有大小写字母,数字,符号,十位左右长度.不修改默认密码,无法对数据库内容进行修改
+
+修改密码策略
+0(LOW)	只检验长度
+1(MEDIUM) 	检验长度,数字,大小写,特殊字符
+2(STRONG) 	检验长度,数字,大小写,特殊字符,字典文件
+show variables like "%password%"; 查看策略库文件
+set global validate_password_policy=0	//只检验长度
+set global validate_password_length=6	//长度修改为最少6位
+这是临时的,如果要永久有效,就要写入配置文件
+]# vim /etc/my.conf
+	[mysql]
+	validate_password_policy=0
+	validate_password_length=6
+]# systemctl restart mysqld			//如果正常重启,表示配置文件没错
+
+
+select database();	//显示当前所属库的名字
+select user();		//显示连接数据库的用户
+create database 库名;	//建库(库名不能是纯数字,区分大小写,不能用特殊符号或指令)
+drop database 库名;		//删库
+
+create table 库名.表名 (	//如果在库内就不用加库名,加库名是为了指定在哪个库下建立的表
+	字段名 类型(宽度),
+	.....
+)DEFAULT CHARSET=utf8;	//指定中文字符集,可以给字段赋值中文
+char 字符串  int 数字集
+##############如果不加库名,修改的就是当前库位置下的表数据###################
+desc 库名.表名		//查看表结构
+select * from 库名.表名	//查看表内容
+insert into 库名.表名 values ("第一列值","第二列值",...),("第一列值","第二列值"..);一个括号为一行			//插入表内容
+update 库名.表名 set 字段名="";	//修改整列
+delete from 库名.表名;	//删除表的所有行,表本身不删除
+drop table 库名.表名;	//删除表
+show create table 表名;	//显示建表时的详细指令
+delete from 表名 where 表头='对应所在列的信息' 	//删除指定行整行表数据
+
+
+数据类型
+种类:数据型,字符型,枚举型,日期时间型
+
+字符型:
+1.定长: char(字符个数) {固定长度}
+--最大字符个数255
+--不指定个数,默认为1
+--不够指定字符个数时在右边用空格补全
+2.变长: varchar(字符个数) {变化长度}
+--最大字符个数65532
+--不指定个数会报错
+--根据存储大小开辟空间,长度不达标时,不会用空格补全
+3.大文本类型: text/blob
+--字符数大于65535存储时使用,不受限制
+
+数值型:
+1.整型
+				 有符号范围(负数)		无符号范围(正数)
+	小整型   smallint     -32768 ~ 32767		0 ~ 65355
+	微小整型 tinyint  	  -128 ~ 127		0 ~ 255
+	大整型	  int		  -2^31 ~ 2^31 -1		0 ~ 2^32 -1
+	指定类型后加上关键字unsigned则数值使用无符号范围,不加就使用有符号范围
+2.浮点型
+	单精度	float				0 ~ 2^32 -1
+	双精度	double			0 ~ 2^64 -1
+float(总宽度位数,小数位个数)	//可以不指定范围
+精确到两位小数时,再多小数位时就会对第三个小数位进行四舍五入,只保留两个小数位
+
+
+日期时间型
+1.日期时间 datetime
+--范围 : 1000-01-01 00:00:00 ~ 9999-12-31 23:59:59
+--格式 : yyyymmddhhmmss
+2.日期时间 timestamp
+--范围 : 1970-01-01 00:00:00 ~ 2038-01-19 00:00:00
+--格式 : yyyymmddhhmmss
+3.日期 date
+--范围 : 0001-01-01 ~ 9999-12-34
+--格式 : yyyymmdd
+4.年 year
+--范围 : 1901 ~ 2155
+--格式 : yyyy
+5.时间 time
+--格式 : hhmmss
+		
+
+
+时间函数
+curtime()	获取当前的系统时间
+curdate()	获取当前的系统日期
+now()		获取当前系统日期和时间
+year()	获取年
+month()	获取月
+day()		获取日
+date()	获取日期
+time()	获取时间
+
+枚举类型
+enum单选
+--格式:字段名	enum(值1,值2.....)
+--仅能选其一
+--值必须在其内
+set多选
+
+
+##############空值和零个值不一个含义#########################
+空值  null
+零个值 ''	[零个占位值,但不空]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

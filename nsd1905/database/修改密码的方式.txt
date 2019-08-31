@@ -1,0 +1,7 @@
+1  mysql> alter user root@localhost identified by '密码';
+2   ]# mysqladm -uroot -p password '新密码'
+	--> enter password: 旧密码
+3  mysql> set password for root@localhost=password('密码');
+
+4. mysql> update mysql.user set authentication_string=PASSWORD('密码')	where user='root' and host='localhost';
+当MySQL服务程序以 skip-grant-tables 选项启动时，如果未执行“flush privileges;”操作，是无法通过set password或者grant方式来设置密码的。比如，验证这两种方式时，都会看到ERROR 1290的出错提示

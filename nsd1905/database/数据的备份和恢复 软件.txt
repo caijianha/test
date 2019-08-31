@@ -1,0 +1,78 @@
+常用的mysql备份工具
+	物理备份缺点
+		- 跨平台性差
+		- 备份时间长,冗余备份,浪费存储空间
+	mysqldump备份缺点
+		- 效率较低,备份和还原速度慢,锁表
+		- 备份过程中,数据插入和更新操作被阻塞
+
+XtraBackup备份工具
+percona软件
+装包
+ rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm 	//yum源中没有这个依赖包,在03/mysql中
+yum -y install percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm
+
+	命令格式
+		innobackupex <选项>		默认连接3306端口
+		完全备份
+			]# innobackupex --user 用户名 --password 密码 备份目录名	--no-timestamp	(目录会自动创建)
+		完全恢复
+			]# innobackupex --apply-log	目录名 //准备恢复数据
+			]#innobackupex --copy-back	目录名	//恢复数据
+		mysql> show engines;	查看默认引擎
+
+	innobackupex恢复:
+		]# innobackupex --user root --password 123456 /root/allback  --no-timestamp
+		]# scp /root/allback root@192.168.4.51:/root
+		恢复步骤
+		1.停止数据库服务器
+			]# systemctl stop mysqld
+		2.清空数据库根目录
+			]# rm -rf /var/lib/mysql/*
+		3.准备恢复数据(将备份过的数据,以及备份完成后又写入的数据进行整合)
+			]# innobackupex --apply-log /root/allback
+		4.拷贝数据
+			]# innobackupex --copy-back /root/allback
+		5.修改数据库目录的所有者和组用户为mysql
+			]# chown -R mysql.mysql /var/lib/mysql
+		6.启动服务	
+			]# systemctel start mysqld
+
+
+	在完全备份文件中恢复单张表
+		步骤
+		1.删除表空间	xxx.ibd 
+			mysql> alter table db5.b discard tablespace;
+		2.导出表信息
+			]# innobackupex --apply-log --export 数据完全备份目录
+		3.拷贝表信息文件到数据库目录下
+			]# cp 数据完全备份目录/db5/b.{cfg,exp,ibd}  /var/lib/mysql/db5
+		4.修改表信息文件的所有者及组用户为mysql
+			]# chown -R /var/liv/mysql		
+		5.导入表空间
+			mysql > alter table db5.b import tablespace;
+		6.删除数据库目录下的表信息文件
+			 ]# rm -rf b.{cfg,exp}
+		7.查看表记录
+			mysql> select
+
+		增量备份:
+			首次备份:做完全备份
+			]# ls /allbak
+			]# cat /allbak/xtrabackup_checkpoints  //备份信息
+			往表中写入新数据
+			增量备份格式:
+			]# innobackupex --user 用户名 --password 密码 --incremental 增量目录 --incremental-basedir=完全备份目录 --no-timestamp (增量目录会自动生成)
+			增量恢复格式
+			]# innobackupex --apply-log --redo-only 完全备份目录名  --incremental-dir= 增量备份目录名		//准备恢复(合并日志和数据)
+			]# innobackupex --copy-back  数据合并后目录名
+			必须清空数据库目录 /var/lib/mysql/*
+				chown mysql.mysql /var/lib/mysql
+
+
+
+
+
+
+
+

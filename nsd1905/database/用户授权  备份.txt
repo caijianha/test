@@ -1,0 +1,160 @@
+##########用户授权
+	定义: 在数据库服务器上添加新的连接用户,在添加用户时可以设置访问权限及连接密码		默认数据库管理员root用户本机登录有授权权限.
+
+	格式:
+		grant 权限列表 on 库名[ . 表名 ] to  用户名@'客户端地址' identified by '密码'   [ with grant option(给新添加的用户附加授权权限,即可以添加新权限用户) ];
+		客户端地址如果用 '%' 即表示当前服务器能ping通的所有用户都可以连接
+		权限列表:
+			all	所有权限
+			usage	无权限
+			select,update,insert..	个别权限
+			select,update(字段名..)	指定字段权限
+
+		用户名存储在mysql库的user表中
+		客户端连接:
+			mysql -h服务器IP  -u用户名   -p密码;
+
+
+	相关命令:
+		select user();	获取当前登录的用户信息
+		show  grants;	显示用户自身的访问权限
+		show grants for 用户名@'客户端地址'	管理员查看已有用户的访问权限(如果没有用户会报错)(普通用户没有这条命令的权限)
+		set password=password('密码');		授权用户连接后改密(后边的password函数是给密码进行加密存储)
+		set password for  用户名@'客户端地址' = password('密码')	管理员修改授权用户密码
+		drop user 用户名@'客户端地址';		删除授权用户(必须有管理员权限)                            
+
+                                 
+	授权库mysql(记录授权信息的)
+		与授权相关的表: 
+			user			记录已有的授权用户及权限
+			db			记录已有授权用户对数据库的访问权限
+			tables_priv		记录已有授权用户对表的访问权限
+			columns_priv 	记录已有授权用户对字段的访问权限
+
+	select user,host from mysql.user;	查看建立的权限用户
+	flush privileges;		刷新表数据,更新权限
+
+
+	权限撤销:(删除已有授权用户的权限)
+			revoke 权限列表 on 库名.表名 from 用户名@'客户端地址';
+
+	删除授权用户
+		drop user 用户名@'客户端地址';
+
+	恢复root密码:
+		必须要以root权限连接操作系统(不数据库服务的root)
+		1.停止服务
+		]# systemctl stop mysqld
+		]#vim /etc/my.cnf
+			skip-grant-tables
+			注释密码策略所在的行
+		]# systemctl start mysqld
+		select host,user,authentication_string from mysql.user;
+		update mysql.user set authentication_string=password('满足系统默认密码策略的密码') where host='localhost' and user='root';
+		flush privileges;
+		]# vim /etc/my.cmf
+			注释skip-grant-tables
+			解除注释密码策略所在的行
+		]# systemctl restart mysqld
+
+	系统命令修改密码
+		]# mysqladm -hlocalhost -uroot -p password= '新密码'
+			-->enter password: 旧密码		(回车会显示这一行)
+
+##########数据完全备份
+	目的: 数据丢失或损坏,可以使用备份数据恢复
+	方式:
+		物理备份: cp , tar (要注意拷贝的文件的所有者和所属组的用户是mysql)
+		逻辑备份: 使用软件自带的备份命令对数据做备份,在执行命令时,会根据已有的数据生成对应的命令,把命令存放到指定的备份文件中; 恢复时,执行恢复文件中的命令恢复数据。
+
+	备份策略:
+		完全备份 : 备份所有数据
+		只备份新数据:
+			差异备份:备份完全备份后,所有产生的新数据
+			增量备份:备份上次备份后,所有产生的新数据
+
+	完全备份: mysqldump
+		备份:
+		]# mysqldump -uroot -p密码  库名>目录/xxx.sql
+		库名的表示方式:
+		--all-databases 或 -A		//所有库
+		数据库名				//单个库
+		数据库名 表名				//单个表
+		-B 数据库1 数据库2 			//多个库		
+		
+
+	完全恢复: mysql
+		恢复:
+		]# mysql -uroot -p密码 库名 < 目录/xxx.sql
+
+##########数据增量备份
+
+	binlog日志的使用
+		定义: 	1.也叫作 二进制日志
+		      2.mysql服务日志文件的一种(默认不启用)
+			3.记录除了查询之外的所有sql命令
+			4.可用于数据备份和恢复
+			5.配置mysql主从同步的必要条件
+		启用:
+			server_id=数字	指定id值(1-255)(不能重复,一般以本机IP尾数为id值)
+			log_bin[=目录名/文件名]{或者 log-bin}  启用binlog日志
+			max_binlog_size=数值m   指定日志文件容量,默认1G 超出会建立新的文件
+
+			]# vim /etc/my.cnf
+			server_id=50
+			log_bin
+			]# systemctl restart mysqld			
+			show master status;		//查看日志启用状态
+			]# ls /var/lib/mysql/host50*
+			/var/lib/mysql/host50-bin.000001	//日志文件
+			/var/lib/mysql/host50-bin.index	//索引文件
+
+	自定义日志存储目录和名称
+			]# vim /etc/my.cnf
+			log-bin=路径   (不加路径就是默认存储位置和名字)
+			]# systemctl restart mysqld
+
+		flush logs;	刷新日志文件  刷新一次生成一个新的日志文件
+
+		mysql -uroot -p密码 -e 'flush logs ';	(加-e 可以在命令行下执行数据库命令)
+
+	删除已有的binlog日志
+			1.删除指定编号之前的日志
+				mysql> purge master logs to '日志名.编号';
+			2.删除所有编号日志,重新创建一binlog_format号日志
+				mysql> reset master;
+	查看日志文件
+		]# mysqlbinlog  日志路径		//默认为乱码
+	使用binlog日志恢复数据
+		]# mysqlbinlog 日志路径 | mysql -uroot -p密码
+	使用binlog日志恢复指定范围内的数据
+		]# mysqlbinlog 选项 日志路径 | mysql -uroot -p密码
+		偏移量{就是 show master status 查出的参数}
+			--start-position=起始偏移量	--stop-position=结束偏移量
+		时间点
+			--start-datetime='yyyy-mm-dd hh:mm:ss'	--start-stop='yyyy-mm-dd hh:mm:ss'
+
+	修改日志格式 三种模式 : row行模式(默认)	mixed混合模式 terminal
+		show variables like '%binlog%';		//查询相关函数
+		show variables like 'binlog_format';		//查看日志模式
+		vim /etc/my.cnf
+			binlog_format='mixed'
+		systemctl restart mysqld
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

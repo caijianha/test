@@ -1,0 +1,170 @@
++++++security_day05
+1 系统审计
+	1.1  系统审计介绍
+	1.2  部署审计服务
+		]# yum -y  install audit
+		[root@host59 ~]# systemctl start auditd
+		[root@host59 ~]# systemctl status auditd
+		[root@host59 ~]# systemctl enable auditd
+		[root@host59 ~]# auditctl  -l
+		No rules
+		[root@host59 ~]# 
+        1.3 定义审计规则
+		命令行定义（立即生效）
+[root@host59 ~]# auditctl  -w /etc/passwd  -p wa -k passwd_change
+[root@host59 ~]# auditctl  -w /etc/selinux/ -p wa -k selinux_change
+[root@host59 ~]# auditctl  -l
+-w /etc/passwd -p wa -k passwd_change
+-w /etc/selinux -p wa -k selinux_change
+-w /usr/sbin/fdisk -p x -k disk_partition
+[root@host59 ~]#
+ 
+		永久定义（重启服务依然有效）
+[root@host59 ~]# vim /etc/audit/rules.d/audit.rules 
+-w /etc/passwd -p wa -k passwd_change
+-w /etc/selinux -p wa -k selinux_change
+-w /usr/sbin/fdisk -p x -k disk_partition
+:wq
+	时间5分钟 到 11：46 
+	
+]# ls /var/log/audit/audit.log
+]# fdisk  -l
+]# useradd yaya99
+]# ausearch -k passwd_change
+]# ausearch -k disk_partition
+ 
+2 服务安全  192.168.4.59
+	1.1 网站服务安全
+		]# yum -y install gcc pcre-devel zlib-devel 
+		]# tar -zxvf nginx-1.12.2.tar.gz 
+		]# cd nginx-1.12.2
+   		]# ./configure 
+   		]# make && make install
+   		]# ls /usr/local/nginx/
+		nginx安全配置
+			1 删除不需要的模块
+   55  vim /usr/local/nginx/conf/nginx.conf
+	server {
+		autoindex on ;
+	:wq
+   56  /usr/local/nginx/sbin/nginx  -t
+   57  /usr/local/nginx/sbin/nginx -s stop
+   58  /usr/local/nginx/sbin/nginx
+   59  netstat -utnlp  | grep  :80
+       http://192.168.4.59/gamedir  列出所有网页文件
+   61  /usr/local/nginx/sbin/nginx -s stop
+   65  ./configure  --without-http_autoindex_module && make  && make install
+   68  grep -n autoindex /usr/local/nginx/conf/nginx.conf
+   69  sed -i '37s/^/#/' /usr/local/nginx/conf/nginx.conf
+   71  /usr/local/nginx/sbin/nginx
+	http://192.168.4.59/gamedir   报错
+			2 如何修改版本信息（修改源码）连接到 14：50
+[root@room9pc17 lnmp_soft]# curl  -i http://192.168.4.59/gamedir/a.html
+HTTP/1.1 200 OK
+Server: nginx/1.12.2
+]# /usr/local/nginx/sbin/nginx  -s stop
+]# vim +48 src/http/ngx_http_header_filter_module.c
+static u_char ngx_http_server_string[] = "Server: IIS" CRLF;
+static u_char ngx_http_server_full_string[] = "Server: IIS" CRLF;
+static u_char ngx_http_server_build_string[] = "Server: IIS" CRLF;
+:wq
+]# ./configure  --without-http_autoindex_module && make  && make install
+]# /usr/local/nginx/sbin/nginx
+[root@room9pc17 lnmp_soft]# curl  -i http://192.168.4.59/gamedir/a.html
+HTTP/1.1 200 OK
+Server: IIS
+			
+		3 限制并发
+]# /usr/local/nginx/sbin/nginx -s stop
+]# /usr/local/nginx/conf/nginx.conf
+http{
+   limit_req_zone $binary_remote_addr zone=one:10m rate=1r/s;
+	server {
+            limit_req zone=one burst=5;
+:wq
+]# /usr/local/nginx/sbin/nginx
+]# ab  -c 10 -n 10 http://192.168.4.59/
+]# ab  -c 100 -n 100 http://192.168.4.59/
+		4 拒绝非法请求
+]# /usr/local/nginx/sbin/nginx -s stop
+]# vim /usr/local/nginx/conf/nginx.conf
+		server {
+			  if ($request_method !~ ^(GET|POST)$ ) {
+                     		return 444;
+               		   }
+	        :wq	
+]# /usr/local/nginx/sbin/nginx -t
+]# /usr/local/nginx/sbin/nginx
+[root@host59 nginx-1.12.2]# curl -i -X HEAD  http://localhost
+curl: (52) Empty reply from server
+[root@host59 nginx-1.12.2]# 
+[root@host59 nginx-1.12.2]# curl -i -X GET  http://localhost
+		5 防止buffer溢出
+			
+		http {
+			client_body_buffer_size  1K;
+			client_header_buffer_size 1k;
+			client_max_body_size 16k;
+			large_client_header_buffers 4 4k;
+	1.2 数据库服务安全
+		mariadb
+		]# yum -y  install  mariadb-server mariadb
+[root@host59 ~]# systemctl  start mariadb
+[root@host59 ~]# 
+[root@host59 ~]# netstat -utnlp  | grep  :3306
+[root@host59 ~]# mysql_secure_installation
+输入就密码，配置新root密码  123456
+Remove anonymous users（删除匿名账户）
+Disallow root login remotely?（禁止root远程登录）
+Remove test database（删除测试数据库）
+Reload privilege（刷新权限）
+	修改MySQL密码的若干方法
+]# mysqladmin -hlocalhost -p   password "654321"
+> set password for  root@"localhost"=password("abc123");
+> update mysql.user  set password=password("123456") where host="localhost" and user="root"; flush privileges ;
+	
+	删除记录命令的文件
+	]# rm -rf /root/.mysql_history
+	]# rm -rf /root/.bash_history 
+	]# history -c
+	[root@host59 ~]# grep 1000 /etc/profile
+	HISTSIZE=1000
+	数据安全： 备份与恢复 、 添加授权用户访问数据 、 tcpdump抓包
+		tomcat服务安全配置
+			]# yum -y  install java-1.8.0-openjdk
+    9 tar -zxvf apache-tomcat-8.0.30.tar.gz 
+   11  mv apache-tomcat-8.0.30 /usr/local/tomcat
+   12  ls /usr/local/tomcat/
+   13  ls /usr/local/tomcat/lib/
+   14  ls /usr/local/tomcat/bin/
+   15  /usr/local/tomcat/bin/startup.sh 
+   16  netstat -utnlp  | grep  :8080
+]# echo 123  > /usr/local/tomcat/webapps/ROOT/test.html
+]# curl  http://localhost:8080/test.html
+[root@svr7 tomcat]# yum -y install java-1.8.0-openjdk-devel
+[root@svr7 tomcat]# cd lib/  ;    jar -xf catalina.jar
+[root@svr7 tomcat]# vim org/apache/catalina/util/ServerInfo.properties //修改内容
+[root@svr7 tomcat]# vim  +69  /usr/local/tomcat/conf/server.xml
+<Connector port="8080" protocol="HTTP/1.1"
+connectionTimeout="20000"  redirectPort="8443" server="jacob" />
+        删除默认的测试页面	
+        ]# rm -rf  /usr/local/tomcat/webapps/*
+
+        降权启动
+   69  useradd tomcat
+   70  chown -R tomcat:tomcat /usr/local/tomcat/
+   71  su - -c "/usr/local/tomcat/bin/startup.sh" tomcat 
+   80  ps aux  | grep  java
+	
+  
+3 打补丁
+	3.1 创建补丁文件  ]# diff -uraN 旧文件 新文件  > 名.patch
+
+	3.2 打补丁        ]#patch -p数字 < 补丁文件
+	
+			  ]# cd /demo/source1/
+        3.3 撤销补丁      ]# patch -RE < 补丁文件
+  	
+		练习5 分钟 到 10:42 
+	
+

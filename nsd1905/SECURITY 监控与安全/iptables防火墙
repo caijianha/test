@@ -1,0 +1,114 @@
+++++security_day06
+	firewalld RHEL7+
+	iptables  RHEL6/5
+
+	hostA  hostB  hostC 
+
+	休息到 11:20
+
+1 iptables防火墙 相关概念：
+	1.1 iptables防火墙的组成：	
+	1.2 iptables基本用法
+		iptables  [-t 表名]  选项  [链名]  [条件]  [-j 目标操作]
+
+
+
+	链内的规则匹配顺序：
+		顺序比对，匹配即停止（LOG除外）
+		若无任何匹配，则按该链的默认策略处理
+
+
+	处理动作（当到达防火墙服务器的数据包与条件匹配时执行的处理方法）
+		ACCEPT：允许通过/放行
+		DROP：直接丢弃，不给出任何回应
+		REJECT：拒绝通过，必要时会给出提示
+		LOG：记录日志，然后传给下一条规则
+
+iptables -t -F
+iptables -t nat -F
+iptables -t mangle -F
+iptables -t raw -F
+iptables-save > /etc/sysconfig/iptables
+
+iptables -t filter  -nL --line-numbers
+iptables -t nat  -nL --line-numbers
+iptables -t mangle  -nL --line-numbers
+iptables -t raw  -nL --line-numbers
+
+2 filter表控制
+	iptables -t filter -A INPUT -p tcp --dport 22  -j ACCEPT
+	iptables -t filter -nL --line-numbers
+	iptables -t filter -P INPUT DROP
+	iptables-save > /etc/sysconfig/iptables
+	systemctl  stop iptables
+
+	yum -y  install httpd
+	echo  123  > /var/www/html/a.html
+	systemctl  start httpd
+	netstat -utnlp  | grep  :80
+
+	systemctl  start iptables
+	iptables -t filter -nL --line-numbers
+	
+基本的匹配条件
+
+	iptables -t filter -I INPUT -p tcp  --dport 80 -j ACCEPT
+	iptables-save > /etc/sysconfig/iptables
+
+
+	iptables -t filter -A INPUT -p  icmp -j ACCEPT
+	iptables -t filter -nL --line-numbers
+	iptables-save > /etc/sysconfig/iptables
+
+	B 主机可以ping 其他主机 但其他主ping 不通B 主机
+	休息到15：15
+
+	]# iptables -t filter -D INPUT 3
+	]# iptables -t filter -A INPUT -p icmp --icmp-type  echo-reply  -j ACCEPT
+	]# iptables-save > /etc/sysconfig/iptables
+
+
+
+	]# iptables -t filter -P FORWARD DROP
+	]# iptables -t filter -A FORWARD -p icmp -j ACCEPT
+
+	]# iptables -t filter -A FORWARD -p tcp --dport 80 -j ACCEPT
+        ]# iptables -t filter -A FORWARD -p tcp --sport 80 -j ACCEPT
+
+	]# iptables -t filter -A FORWARD -p tcp  --dport 22  -j ACCEPT
+        ]# iptables -t filter -A FORWARD -p tcp  --sport 22  -j ACCEPT
+
+	]# iptables-save > /etc/sysconfig/iptables
+3 扩展匹配
+iptables -t filter -A FORWARD -p tcp -m multiport --dports 22,80 -j ACCEPT
+iptables -t filter -A FORWARD -p tcp -m multiport --sports 22,80 -j ACCEPT
+]# iptables -t filter -D FORWARD 2 
+]# iptables -t filter -D FORWARD 2 
+]# iptables -t filter -D FORWARD 2 
+]# iptables -t filter -D FORWARD 2 
+
+
+]# iptables -t filter -D FORWARD 1
+]# iptables -t filter -A FORWARD -p icmp -m iprange --src-range 192.168.4.90-192.168.4.95 -j ACCEPT
+ 
+
+]# iptables -t filter -A FORWARD -p icmp -m iprange --dst-range 192.168.4.90-192.168.4.95 -j ACCEPT
+
+
+]# iptables -t filter -I FORWARD 3 -p icmp -m mac --mac-source 52:54:00:ca:43:ab -j DROP 
+
+	       18:50上课
+
+4 nat表典型应用 ( 让多台私有Ip地址主机共享同一个公网ip地址 上网)
+            
+[root@hostB ~]# iptables -t nat -A POSTROUTING -s 192.168.2.0/24 -p tcp --dport 80  -j SNAT --to-source 192.168.4.92
+
+或
+
+iptables -t nat -A POSTROUTING -s  192.168.2.0/24  -o eth0  -j  MASQUERADE
+
+
+[root@hostB ~]# iptables -t nat -nL POSTROUTING
+
+[root@hostB ~]# iptables-save > /etc/sysconfig/iptables
+

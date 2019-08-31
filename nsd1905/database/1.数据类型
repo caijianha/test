@@ -1,0 +1,210 @@
+08:30
+09:00~12:00  
+14:00~18:00
+18:45~20:45
+静静
+panglj@tedu.cn
+第3阶段课程：  数据库管理员  DBA  IDC
+RDBMS1 5
+RDBMS2 5
+NoSQL  3
+Security 6
+project2 1
+
+不迟到 不早退 认真听讲 专心做实验
+
+RDBMS1_DAY01
+1 构建MySQL服务
+	1.1 相关概念
+	1.2 部署mysql数据库服务192.168.4.50
+		1 安装mysql软件
+		2 启动mysql服务
+		3 服务相关参数
+		4 使用初始密码连接服务
+		5 修改登陆密码
+		6 使用修改后的密码登陆
+	1.3 修改密码策略  		休息到 11:10
+]# mysql -hlocalhost -uroot -p123qqq...A
+mysql> show  variables like "%password%";
+mysql> set global validate_password_policy=0 ; 临时修改
+mysql> set global validate_password_length=6 ;
+mysql> alter user root@"localhost" identified  by "tarena";
+mysql> exit
+]# mysql -hlocalhost -uroot -ptarena
+mysql> exit
+]# vim /etc/my.cnf  永久修改
+	[mysqld]
+	validate_password_policy=0 
+        validate_password_length=6
+:wq
+]# systemctl restart mysqld
+]# mysql -hlocalhost -uroot  -ptarena
+mysql> show variables like "%password%";
+
+2 、数据库基本管理
+	2.1 库管理命令
+	2.2 表管理命令
+mysql> create database db1;
+mysql> create table db1.stuinfo(name char(15) , homeaddr  char(20) );
+mysql> use db1;
+mysql> show tables;
+mysql> desc db1.stuinfo;
+mysql> select  * from db1.stuinfo;
+mysql> insert into db1.stuinfo values("bob","usa"),("lilei","china");
+mysql> select  * from db1.stuinfo;
+mysql> update db1.stuinfo set homeaddr="beijing";
+mysql> select  * from db1.stuinfo;
+mysql> delete from  db1.stuinfo;
+mysql> drop table db1.stuinfo;
+mysql> show tables;
+			5分钟到 14：50 
+
+mysql> create table 学生表2(姓名 char(10) ,年龄 int )DEFAULT CHARSET=utf8;
+mysql> show create table 学生表2 ;
+mysql> insert into  学生表2 values("张三丰",100);
+mysql> insert into  学生表2 values("张翠山",30);
+mysql> select  * from 学生表2;
+
+			休息到 15：05
+
+3 MySQL 数据类型
+	3.1  数据类型的种类？
+
+	3.2 字符类型 char / varchar
+
+mysql> create table  t2 (name  char(5) , email  varchar(30) );
+
+mysql> insert into db1.t2 values ("bob","bob@tedu.cn");
+	
+	3.3 数值类型              有符号（负数）	无符号（正数）
+		整型类型      
+		微小整型 tinyint  -128~127		0~255
+		小整型   smallint -32768~32767		0 ~ 65535
+		
+mysql> create table t3(
+    -> name char(5),
+    -> age  tinyint
+    -> );
+
+mysql> create table t4(
+    -> name char(5),
+    -> age  tinyint unsigned
+    -> );
+
+mysql> create table t4 ( name char(5), age  tinyint unsigned);
+mysql> insert into  t4 values ("tom",-1);
+mysql> insert into  t4 values ("tom",256);
+mysql> insert into  t4 values ("tom",56);
+mysql> insert into  t4 values ("lucy",11.88);
+mysql> insert into  t4 values ("lili",11.45);
+mysql> select  * from  t4;
+		
+		浮点型
+			单精度 float
+			双精度 double
+
+		小数的组成   整数.小数 总位数
+
+			     1024.88   6
+
+float
+
+float(7,2)
+xxxxx.xx
+99999.99
+    0.00
+-99999.99
+
+float(5,2)
+xxx.xx
+999.99
+-999.99
+
+mysql> create table  t5 ( name  char(5) ,  gz  float(7,2) );
+mysql> desc t5;
+mysql> insert into  t5 values ("bob" , 100000.88);
+mysql> insert into  t5 values ("bob" , 10000.88);
+mysql> insert into  t5 values ("bob" , 99999.99);
+mysql> insert into  t5 values ("bob" , -99999.99);
+mysql> insert into  t5 values ("bob" , -99999.99);
+mysql> insert into  t5 values ("bob" , 11.99);
+mysql> insert into  t5 values ("bob" , 11.23);
+mysql> insert into  t5 values ("bob" , 23);
+mysql> select  * from t5;  
+			 练习到 16：45 
+
+
+	3.3 日期时间类型  datetime(日期时间)  timestamp(日期时间)  time(时间) year(年)  date(日期)
+mysql> create  table t7 (
+    -> name char(10),
+    -> your_start  year,
+    -> up_time  time ,
+    -> birthday  date ,
+    -> party  datetime
+    -> );
+
+mysql> desc t7;
+mysql> insert into t7  values ("bob",1990,083000,20191120,20190707213045);
+mysql> select  *  from t7;
+
+		使用时间函数获取数据给类型赋值  day()  日  date() 日期  time() 时间
+mysql> select   curtime();     //系统时间
+mysql> select   curdate();     //系统日期
+mysql> select   now();		//系统日期时间
+mysql> select  year( now() );  //年
+mysql> select  month( now() );  //月
+mysql> select  year(20211008);
+
+mysql> insert into t7 values ("bom",2000, curtime(), curdate(), now() );
+
+mysql> insert into t7 
+values ("jerry",year(20230928), curtime(), curdate(), now() );
+
+mysql> select  * from t7;
+		当使用2位数赋值给year类型赋值时：
+			01~69视为  2001~2069
+			70~99视为  1970~1999
+mysql> insert into t7 values ("jim",99,now(),now(),now());
+mysql> insert into t7 values ("mack",69,now(),now(),now());
+mysql> select  * from t7;
+
+		当未给timestamp字段赋值时，自动以当前系统时间赋值，而datetime 			值为 NULL (空)
+
+mysql> create table  t8  (
+    -> meetting  datetime ,
+    -> party     timestamp
+    -> );
+
+mysql> insert into t8 values ( now() , now() );
+mysql> insert into t8(meetting) values(20201028223058);
+mysql> insert into t8(party) values(20181128223058);
+
+mysql> select  * from  t8;
+
+			10分钟到 17：50 
+
+	枚举类型（字段值 只能在列举的范围里选择）
+	enum 单选
+	set  多选
+
+mysql> create  table  t9 (
+    -> name  char(10) ,
+    -> sex   enum ("boy","girl","no"),
+    -> likes set ("eat","drink","game","happy")
+    -> );
+
+mysql> desc t9;
+
+mysql> insert into t9 values ("bob","man","book,it");
+mysql> 
+mysql> insert into t9 values ("bob","boy","book,it");
+mysql> 
+mysql> insert into t9 values ("bob","boy","eat,happy,game");
+
+mysql> select  * from  t9; 
+
+
+
+
+			
+		    

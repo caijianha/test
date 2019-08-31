@@ -1,0 +1,26 @@
+第5天8.10.
+1.写出重置binlog日志的2种方法
+删除指定编号之前的binlog日志
+mysql> purge master logs to "plj.000004";
+删除所有日志,重新建立
+rmysql> eset master;
+
+2.binlog日志三种格式以及特点
+statement  报表模式
+row             行模式
+mixed          混合模式
+
+3.利用percona-xtrabackup软件对数据库做完全备份
+innobackupex --user root --password 123456 /all --no-timestamp
+
+4.增量备份新数据
+innobackupex --user root --password 123456 --incremental  /new1 --incremental-basedir=/all --no-timestamp
+
+
+5.通过增量备份和完全备份恢复数据库所有数据
+innobackupex --apply-log --redo-only  /opt/all/
+innobackupex --apply-log --redo-only  /opt/all/  --incremental-dir=/opt/new1
+
+
+
+

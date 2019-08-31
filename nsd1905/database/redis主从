@@ -1,0 +1,118 @@
++++++++NoSQL_DAY03
+1 Redis主从复制
+	1.1、Redis主从复制?
+	1.2 、Redis主从复制结构： 一主一从、一主多从、主从从
+
+        1.3 Redis主从复制配置命令？
+	  > info replication
+	  > slaveof  主服务器ip   端口
+	  > slaveof no one
+	
+	1.4 永久配置
+		]# vim /etc/redis/6379.conf
+		  282 slaveof 主服务器ip   端口
+		:wq
+
+	练习10分钟 到 09：32 
+
+	1.5 带验证的主从配置
+		主服务器设置连接密码
+			 requirepass  123456 
+
+		从服务器指定连接密码
+			 masterauth  123456
+
+	练习10分钟 到 09：49 
+
+	分别把52 和 53 都配置为 51 的从服务器
+
+	53> slaveof  主服务器ip   端口
+
+	休息到 10：15 
+
+	配置主从从结构（ 时间10分钟到10：28）
+	主54 <---- 从55 <----从56
+
+	休息+练习 到 11:05 上课。
+
+	redis主从复制的工作过程？
+
+2 哨兵服务
+	哨兵服务器57监视，主从从结构中的主服务器54 
+
+	配置哨兵服务器57
+		1 安装redis软件
+  204  rpm -q gcc
+  205  yum -y  install gcc
+  207  tar -zxvf redis-4.0.8.tar.gz 
+  208  cd redis-4.0.8/
+  209  make && make install
+
+		2 修改哨兵服务的主配置文件
+		]# vim /etc/sentinel.conf
+			bind 0.0.0.0 
+			port 26379
+			sentinel monitor redis54 192.168.4.54 6354 1
+		:wq
+		3 启动哨兵服务
+			]# redis-sentinel /etc/sentinel.conf
+
+		4 查看服务信息 ：服务启动后会有启动信息显示
+
+		6 测试哨兵服务
+			1 停止主服务器的redis服务
+			2 对应的从服务器会升级为主服务器
+			3 哨兵服务会自动监视当前的主服务器
+3 数据持久化
+	3.1 RDB:  dump.rdb
+	    使用RDB文件恢复数据
+	    修改数据存盘的时间间隔
+
+	3.2 AOF: appendonly.aof
+	    启用AOF文件
+	    使用AOF文件恢复数据
+	    AOF优化配置
+			
+	休息到16:00		
+4 Redis数据类型
+
+
+1G=1024M
+1M=1024K
+1K=1024Byte
+1字节=8位
+      00000000
+      11111111
+
+
+setbit  xxx  0 1
+setbit  xxx  1 1
+11
+setbit  xxx   
+setbit xxx   3 0
+
+01111001  xxx	
+
+ 变量常用管理命令
+	 set append strlen setrange  get getrange  decr  decrby setbit  bitcount
+	 incr incrby  incrbyfloat  
+
+    list 列表类型变量的相关管理命令
+	lpush  lrange  lpop   lindex  llen  lset
+        rpush          rpop
+
+    hash表类型变量的相关管理命令
+	hset  hmset   hget  hmget hkeys  hvals  hgetall  hdel
+
+      练习10分钟 到 10：05
+	休息15分钟 到 10：20   
+
+数据库管理员  或 DBA
+
+
+
+
+
+
+
+

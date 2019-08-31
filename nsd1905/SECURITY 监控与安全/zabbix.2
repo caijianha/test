@@ -1,0 +1,218 @@
++++++security_day02
+1 Zabbix报警机制
+	1.1 触发器？
+	1.2 创建触发器  cfq1
+
+休息到 11：20 
+	1.3 创建动作
+		1.3.1 准备邮件服务器和收发邮件的邮箱	
+  129  rpm -q postfix || yum  -y  install  postfix
+  130  systemctl  start postfix
+  131  systemctl  enable postfix
+  132  netstat -utnlp | grep :25
+  133  echo "127.0.0.1  zabbix-server" >> /etc/hosts
+  134  cat /etc/hosts
+  135  grep zabbix /etc/passwd
+  136  grep root /etc/passwd
+  139  yum -y install mailx
+  140  mail  -s  "xxx" zabbix  < /etc/hosts
+  141  su - zabbix  切换到zabbix用户
+  142  mail  查看邮件
+       1       查看编号1的邮件内容
+       exit  退出查看连接
+       exit  退回到管理员root用户
+              1.3.2 登陆管理页面做如下配置
+	 		1 设置邮件服务器
+			2 设置收件邮箱地址
+			3 创建动作  act1
+			4 测试配置
+				4.1 触发器被触发后执行动作
+				4.2 查看是否收到邮件
+			 5 分钟 到  14：13
+2 Zabbix进阶操作
+	2.1 自动发现
+		1 自动发现的定义？
+		2 配置自动发现：
+			登陆管理页面做如下操作：
+				1创建自动发现规则 auto1
+
+				2创建Action动作（发现主机后自动执行什么动作）
+
+				3 通过动作，执行添加主机，链接模板到主机等操作
+
+		3测试配置：  时间15：00
+			创建新的虚拟机：
+			  配置ip地址在192.168.2.6～254 之间 且运行httpd服务
+
+			在管理页面查看已经监控的主机列表 有 新创建的主机地址
+ 
+		休息到 15：20
+	2.2 主被动监控
+		2.2.1 主被动监控介绍？
+		2.2.2 配置主动监控	
+			1 配置客户端  192.168.2.201
+				1 安装源码zabbix软件
+[root@web201 ~]# yum -y install gcc pcre-devel
+[root@web201 ~]# tar -xf zabbix-3.4.4.tar.gz 
+[root@web201 ~]# cd zabbix-3.4.4/
+[root@web201 ~]#./configure --enable-agent
+[root@web201 ~]# make install
+				2 修改主配置文件 （ 时间到 15：55 ）
+web201 ~]# vim /usr/local/etc/zabbix_agentd.conf
+#Server=127.0.0.1
+StartAgents=0	
+ServerActive=192.168.2.5  
+Hostname=web201  
+RefreshActiveChecks=120 
+:wq
+		`		3 启动服务
+web201 ~]# useradd  zabbix 
+web201 ~]# zabbix_agentd
+				4 只有进程没有端口
+web201 ~]# ps -C zabbix_agentd
+web201 ~]# netstat -utnlp  | grep  :10050
+
+			   休息到16：15
+			2 配置服务器    192.168.2.5			
+				登陆管理页面做如下操作：
+				 1 克隆已有模板
+
+				 2 修改监控项模式
+
+				 3 添加监控主机201
+
+				 4 选择监控模板
+				
+				 5 查看监控数据
+	2.3 拓扑图与聚合图形
+		2.3.1 拓扑图:绘制拓扑图可以快速了解服务器架构
+		2.3.2 聚合图形:在一个页面显示多个数据图表，方便了解多组数据
+
+
+3 监控案例
+	3.1 监控Nginx  192.168.2.100
+			1 安装源码nginx软件且支持状态模块
+			2 访问服务查看状态信息
+			3 编写获取不同状态信息的脚本  时间5分钟 到 09：32
+[root@web100 ~]# vim  /usr/local/bin/nginx_statu.sh
+#!/bin/bash
+case  $1 in 
+"Active")
+    curl  -s http://192.168.2.100/status | awk 'NR==1{print $3}';;
+"accepts")
+    curl  -s http://192.168.2.100/status | awk 'NR==3{print $1}';;
+"Waiting") 
+    curl  -s http://192.168.2.100/status | awk 'NR==4{print $6}';;
+esac
+:wq
+
+[root@web100 ~]# chmod  +x /usr/local/bin/nginx_statu.sh
+
+[root@web100 ~]# /usr/local/bin/nginx_statu.sh Active
+1
+[root@web100 ~]# /usr/local/bin/nginx_statu.sh accepts
+36
+[root@web100 ~]# /usr/local/bin/nginx_statu.sh Waiting
+0
+[root@web100 ~]# 
+
+			4 启用zabbix_agentd服务的自定义监控项功能 ，并把脚本定义为监控命令
+
+[root@web100 ~]# vim /usr/local/etc/zabbix_agentd.conf.d/a.conf
+UserParameter=get_user_num,wc -l /etc/passwd | awk '{print $1}'
+UserParameter=get_nginx_status[*],/usr/local/bin/nginx_statu.sh $1
+:wq
+
+[root@web100 ~]# killall -9 zabbix_agentd
+[root@web100 ~]# 
+[root@web100 ~]# killall -9 zabbix_agentd
+zabbix_agentd: no process found
+[root@web100 ~]# 
+[root@web100 ~]# zabbix_agentd 
+
+[root@web100 ~]# zabbix_agentd
+[root@web100 ~]# netstat -utnlp  | grep :10050
+
+[root@web100 ~]# zabbix_get  -s 127.0.0.1 -k get_nginx_status[Active]
+1
+[root@web100 ~]# zabbix_get  -s 127.0.0.1 -k get_nginx_status[accepts]
+61
+[root@web100 ~]# zabbix_get  -s 127.0.0.1 -k get_nginx_status[Waiting]
+0
+[root@web100 ~]#
+
+		3.1.2 配置监控服务器 192.168.2.5
+			登陆管理页面做如下操作：
+				1 创建监控模板ATMP2
+				2 创建应用集  nginx_status_info
+				3 创建监控项 （与监控命令对应）
+				now_link_num		时时连接数量
+				sum_link_num		历史累计连接数量
+				wait_link_num		等待写处理请求的数量
+				4 调用新创建的监控目模板监控100主机
+				5 查看监控数据
+
+	3.2 监控网络连接状态 192.168.2.100
+]# vim /usr/local/bin/tcp_status.sh
+#!/bin/bash
+case $1 in
+estab)
+    ss -antp |awk 'BEGIN{x=0}/^ESTAB/{x++} END{print x}';;
+close_wait)
+    ss -antp |awk 'BEGIN{x=0}/^CLOSE-WAIT/{x++} END{print x}';;
+time_wait)
+    ss -antp |awk 'BEGIN{x=0}/^TIME-WAIT/{x++} END{print x}';;
+esac 
+:wq
+]# chmod  +x  /usr/local/bin/tcp_status.sh
+[root@web100 ~]# /usr/local/bin/tcp_status.sh estab
+1
+[root@web100 ~]# 
+[root@web100 ~]# /usr/local/bin/tcp_status.sh close_wait
+0
+[root@web100 ~]# /usr/local/bin/tcp_status.sh time_wait
+44
+[root@web100 ~]#  休息到 11：30 
+
+[root@web100 ~]# vim /usr/local/etc/zabbix_agentd.conf.d/a.conf 
+UserParameter=get_user_num,wc -l /etc/passwd | awk '{print $1}'
+UserParameter=get_nginx_status[*],/usr/local/bin/nginx_statu.sh $1
+UserParameter=get_tcp_status[*],/usr/local/bin/tcp_status.sh  $1
+:wq
+
+[root@web100 ~]# killall -9  zabbix_agentd
+[root@web100 ~]# killall -9  zabbix_agentd
+zabbix_agentd: no process found
+[root@web100 ~]# zabbix_agentd 
+[root@web100 ~]# netstat -utnlp  | grep  :10050
+tcp        0      0 0.0.0.0:10050           0.0.0.0:*               LISTEN      32168/zabbix_agentd 
+[root@web100 ~]# 
+
+
+ot@web100 ~]# zabbix_get -s 127.0.0.1  -k get_tcp_status[close_wait]
+0
+[root@web100 ~]# 
+[root@web100 ~]# zabbix_get -s 127.0.0.1  -k get_tcp_status[time_wait]
+43
+[root@web100 ~]# zabbix_get -s 127.0.0.1  -k get_tcp_status[estab]
+3
+[root@web100 ~]# 
+
+
+[root@web100 ~]#
+
+			配置监控服务器 192.168.2.5
+                        登陆管理页面做如下操作：
+                                在模板ATMP2里添加新的应用集 tcp_status_info
+                                创建监控项 （与监控命令对应）
+                                link_close            等待断开连接状态个数
+                                time_wait            已经断开状态个数
+                                estab_link          连接状态个数
+                                5 查看监控数据
+
+
+
+
+
+
+

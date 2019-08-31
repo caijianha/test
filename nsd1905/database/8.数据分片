@@ -1,0 +1,248 @@
+++++++++RDBMS2_DAY03-数据分片
+	1 相关概念？
+	2 配置mycat服务器
+		安装JDK
+			[root@host56 ~]# yum -y install java-1.8.0-openjdk
+
+			[root@host56 ~]# which  java
+			/usr/bin/java
+
+			[root@host56 ~]# java -version
+			openjdk version "1.8.0_161"
+			OpenJDK Runtime Environment (build 1.8.0_161-b14)
+			OpenJDK 64-Bit Server VM (build 25.161-b14, mixed mode)
+			[root@host56 ~]#
+
+		装包	]# tar -zxvf Mycat-server-1.6-RELEASE-20161028204710-linux.tar.gz
+			]# mv mycat /usr/local/
+			[root@host56 ~]# ls /usr/local/mycat/
+			bin  catlet  conf  lib  logs  version.txt
+		修改配置文件
+			1 定义连接用户和逻辑库名
+				]# vim /usr/local/mycat/conf/server.xml  (使用默认配置)
+
+			2 数据分片配置
+				]# cp  /usr/local/mycat/conf/schema.xml  /root/
+
+				]# sed -i '56,77d' /usr/local/mycat/conf/schema.xml
+				]# sed -i '39,42d' /usr/local/mycat/conf/schema.xml
+				]# sed -i '16,18d' /usr/local/mycat/conf/schema.xml
+
+				]# vim  /usr/local/mycat/conf/schema.xml
+
+
+			3 配置数据库服务器(3台数据库服务器)
+				3.1 创建存储数据的库
+[root@host53 ~]# mysql -uroot -p123qqq...A -e "create database db1"
+[root@host54 ~]# mysql -uroot -p123qqq...A -e "create database db2"
+[root@host53 ~]# mysql -uroot -p123qqq...A -e "create database db3"
+
+				3.2 添加mycat 连接用户 pljyaya
+53~55]#
+mysql> grant  all  on  *.*  to   pljyaya@"%" identified by "123qqq...A";
+	
+			4 启动服务
+[root@host56 mycat]# /usr/local/mycat/bin/mycat status
+Mycat-server is not running.
+[root@host56 mycat]#
+
+			5 查看服务状态
+[root@host56 mycat]# netstat -utnlp  | grep  :8066
+tcp6       0      0 :::8066                 :::*                    LISTEN      1727/java           
+[root@host56 mycat]# ls /usr/local/mycat/logs/
+mycat.log  mycat.pid  wrapper.log
+[root@host56 mycat]#		
+
+	
+			6 排错 （1节课）
+[root@host56 mycat]# tail -f  /usr/local/mycat/logs/wrapper.log
+			
+			时间15分钟  到 14：45
+			
+			7 测试配置
+				7.1 客户端50 连接mycat服务器访问数据
+				  mysql -h192.168.4.56 -P8066 -uroot  -p123456
+				  mysql> show databases;
+				  mysql> use TESTDB;
+				  mysql> show tables;
+				  mysql> desc company;
+				  ERROR 1146 (42S02): Table 'db3.company' doesn't exist
+				7.2 分片规则
+					7.2.1 sharding-by-intfile
+						枚举法 字段值必须在列举范围内选择
+
+<table name="employee" primaryKey="ID" dataNode="dn1,dn2,dn3"
+                           rule="sharding-by-intfile" />
+
+</tableRule name="sharding-by-intfile">
+                <rule>
+                        <columns>sharding_id</columns>
+                        <algorithm>hash-int</algorithm>
+                </rule>
+</tableRule>
+
+
+<function name="hash-int"
+                class="io.mycat.route.function.PartitionByFileMap">
+                <property name="mapFile">partition-hash-int.txt</property>
+</function>
+
+
+]#vim  /usr/local/mycat/conf/partition-hash-int.txt
+10000=0
+10010=1
+10020=2
+:wq
+
+]# /usr/local/mycat/bin/mycat  stop
+]# /usr/local/mycat/bin/mycat  start
+]# netstat -utnlp  | grep :8066
+
+		休息到 15：30 
+				建表存储数据
+[root@host50 ~]# mysql -h192.168.4.56 -P8066 -uroot  -p123456
+mysql> use TESTDB;
+
+mysql> create table employee (ID int  primary key auto_increment, sharding_id int , 
+name  char(15) , home char(50) , sex enum("man","woman") );
+
+mysql> desc  employee;
+
+mysql> insert into employee(sharding_id,name,home,sex)
+    -> values
+    -> (10030,"bob","usa","man");
+ERROR 1064 (HY000): can't find any valid datanode :EMPLOYEE -> SHARDING_ID -> 10030
+mysql> 
+mysql> 
+mysql> insert into employee(sharding_id,name,home,sex) values (10000,"bob","usa","man");
+Query OK, 1 row affected (0.02 sec)
+
+mysql> 
+mysql> 
+mysql> 
+mysql> 
+mysql> insert into employee(sharding_id,name,home,sex) values (10000,"tom","usa","man");
+Query OK, 1 row affected (0.05 sec)
+
+mysql> 
+mysql> 
+mysql> insert into employee(sharding_id,name,home,sex) values (10010,"tom","usa","man");
+Query OK, 1 row affected (0.04 sec)
+
+mysql> insert into employee(sharding_id,name,home,sex) values (10020,"tom","usa","man");
+Query OK, 1 row affected (0.02 sec)
+
+mysql> select  * from employee;
++----+-------------+------+------+------+
+| ID | sharding_id | name | home | sex  |
++----+-------------+------+------+------+
+|  1 |       10010 | tom  | usa  | man  |
+|  1 |       10000 | bob  | usa  | man  |
+|  2 |       10000 | tom  | usa  | man  |
+|  1 |       10020 | tom  | usa  | man  |
++----+-------------+------+------+------+
+4 rows in set (0.01 sec)
+
+mysql> 
+		7.2.2  mod-long
+		求模法:根据字段值与设定的数字求模结果存储数据
+
+
+<table name="hotnews"  dataNode="dn1,dn2,dn3" rule="mod-long" />
+
+<tableRule name="mod-long">
+                <rule>
+                        <columns>id</columns>
+                        <algorithm>mod-long</algorithm>
+                </rule>
+</tableRule>			
+
+<function name="mod-long" class="io.mycat.route.function.PartitionByMod">
+                <!-- how many data nodes -->
+                <property name="count">3</property>
+</function>
+
+
+[root@host56 conf]# /usr/local/mycat/bin/mycat  stop
+[root@host56 conf]# /usr/local/mycat/bin/mycat  start
+[root@host56 conf]# netstat -utnlp  | grep :8066
+
+			建表并存储数据
+[root@host50 ~]# mysql -h192.168.4.56 -P8066 -uroot  -p123456
+mysql> use TESTDB;
+
+mysql> create table  hotnews (id  int , title char(50) , comment char(100),
+    -> worker  char(20) ,up_time datetime );
+
+mysql> insert into hotnews(id , title , comment , worker , up_time)
+    -> values
+    -> (7,"linux","apache server","nb" , now()),
+    -> (8,"shell","pxe shell","wk" , 20190601090000),
+    -> (9,"ope","nginx vpc","dmy" , 20190701210000),
+    -> (10,"mysql","master-slave","plj" , now());
+
+mysql> select  * from hotnews;
+
+  			不分片存储记录 type=global
+<table name="company" primaryKey="ID" type="global" dataNode="dn1,dn2,dn3" />
+
+			 创建表并存储数据
+[root@host50 ~]# mysql -h192.168.4.56 -P8066 -uroot  -p123456
+mysql> use TESTDB;
+
+mysql> create table company (ID int primary key auto_increment ,name char(50) , addr char(100) );
+
+mysql> insert into company (name ,addr ) values ("tarena","beijing"), ("QQ","shenzheng"), ("tmall","hangzhou");
+
+mysql> select  *  from company;
+
+		时间到 17：35   休息10分钟 到 17：45
+
+		在分片服务器添加新库\新表
+			[root@host56 conf]# vim server.xml
+<user name="root">
+                <property name="password">123456</property>
+                <property name="schemas">TESTDB,GAMEDB</property>
+<user name="user">
+                <property name="password">user</property>
+                <property name="schemas">TESTDB,GAMEDB</property>
+
+:wq
+
+			[root@host56 conf]# vim schema.xml
+<mycat:schema xmlns:mycat="http://io.mycat/">
+        <schema name="GAMEDB" checkSQLschema="false" sqlMaxLimit="100">
+           <table name="user" primaryKey="ID" type="global" dataNode="dn1,dn2,dn3" />
+           <table name="game_pople"  dataNode="dn1,dn2,dn3" rule="mod-long" />
+        </schema>
+
+:wq
+[root@host56 conf]# /usr/local/mycat/bin/mycat  stop
+[root@host56 conf]# /usr/local/mycat/bin/mycat  start
+[root@host56 conf]# netstat -utnlp  | grep  :8066
+tcp6       0      0 :::8066                 :::*                    LISTEN      2570/java           
+[root@host56 conf]# 
+				
+			客户端连接56 主机 查看新库新表
+[root@host50 ~]# mysql -h192.168.4.56 -P8066 -uroot  -p123456
+mysql> show  databases;
++----------+
+| DATABASE |
++----------+
+| GAMEDB   |
+| TESTDB   |
++----------+
+2 rows in set (0.00 sec)
+
+mysql> use GAMEDB;
+mysql> show tables;
++------------------+
+| Tables in GAMEDB |
++------------------+
+| game_pople       |
+| user             |
++------------------+
+2 rows in set (0.00 sec)
+
+mysql> 
+

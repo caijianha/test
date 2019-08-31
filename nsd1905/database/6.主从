@@ -1,0 +1,287 @@
+++++++RDBMS2_DAY01 
+1 mysql主从同步
+	1.1 主从同步介绍?
+	1.2 主从同步工作过程?
+	1.3 配置主从同步
+		1.3.1 配置主服务器 192.168.4.51  时间10分钟到 09：38 
+]# netstat -utnlp  | grep  :3306 
+]# systemctl status mysqld
+
+]# vim /etc/my.cnf
+[mysqld]
+server_id=51
+log-bin=master51
+:wq
+
+]# systemctl  restart mysqld
+
+[root@host51 ~]# systemctl  restart mysqld
+[root@host51 ~]# 
+[root@host51 ~]# ls /var/lib/mysql/master51.*
+/var/lib/mysql/master51.000001  /var/lib/mysql/master51.index
+[root@host51 ~]# 
+
+[root@host51 ~]# mysql -uroot -p123qqq...A
+mysql> show master status;
+mysql> grant replication slave on *.*  to  repluser@"%" identified by "123qqq...A";
+mysql> show grants for repluser@"%";
+
+		1.3.2 配置从服务器 192.168.4.52
+
+]# vim /etc/my.cnf
+[mysqld]
+server_id=52
+:wq
+
+[root@host51 ~]# systemctl restart mysqld
+
+[root@host51 ~]# mysqldump -uroot -p123456  --master-data  db5 > /root/db5.sql
+[root@host51 ~]# scp  /root/db5.sql  root@192.168.4.52:/opt/
+
+[root@host52 ~]# mysql -uroot -p123qqq...A
+mysql> create database db5;
+mysql> exit
+
+[root@host52 ~]# mysql -uroot -p123qqq...A  db5  < /opt/db5.sql 
+[root@host52 ~]# mysql -uroot -p123qqq...A  -e "use db5 ; show tables "
+
+[root@host52 ~]# grep master51  /opt/db5.sql 
+CHANGE MASTER TO MASTER_LOG_FILE='master51.000001', MASTER_LOG_POS=441;
+
+	[root@host52 ~]# mysql -uroot -p123qqq...A
+	mysql> show slave status;
+	       Empty set (0.01 sec)
+	
+mysql> change master to master_host="192.168.4.51" , master_user="repluser" ,
+    -> master_password="123qqq...A" , master_log_file="master51.000001",
+    -> master_log_pos=441;
+Query OK, 0 rows affected, 2 warnings (0.20 sec)
+
+mysql> start slave;
+Query OK, 0 rows affected (0.03 sec)
+
+mysql> show slave status\G; 
+		Master_Host: 192.168.4.51
+		Slave_IO_Running: Yes
+                Slave_SQL_Running: Yes
+
+相关文件 存放在数据库目录下
+master.info	主库信息
+relay-log.info	中继日志信息
+主机名-relay-bin.xxxxxx	中继日志
+主机名-relay-bin.index	索引文件
+
+				休息到 10：40 
+	1.4 排错
+ 	     Last_IO_Error: Got fatal error 1236 from master when reading data from binary log: 'Could not find first log file name in binary log index file'
+
+	mysql> stop slave;
+	mysql> change master to  选项=值；
+	mysql> start slave;
+	mysql> show slave status\G;
+
+Last_IO_Error: error connecting to master 'repluser@192.168.4.51:3306' - retry-time: 60  retries: 28
+
+
+mysql> start slave;
+ERROR 1872 (HY000): Slave failed to initialize relay log info structure from the repository
+
+[root@h52 mysql]# rm -rf master.info  relay-log.info  h52-relay-bin.*
+[root@h52 mysql]# systemctl  restart mysqld
+
+mysql> change master to  master_host="192.168.4.51", master_user="repluser",
+    -> master_password="123qqq...A", master_log_file="master51.000001",
+    -> master_log_pos=991;
+Query OK, 0 rows affected, 2 warnings (0.32 sec)
+
+mysql> start slave;
+
+
+Last_IO_Error: Fatal error: The slave I/O thread stops because master and slave have equal MySQL server UUIDs; these UUIDs must be different for replication to work.
+
+
+[root@m52 mysql]# vim /var/lib/mysql/auto.cnf
+[auto]
+server-uuid=08e67633-b58b-11e9-ab27-525400d15cb9
+:wq
+[root@m52 mysql]# systemctl  restart mysqld
+
+Last_SQL_Error: Could not execute Delete_rows event on table mysql.user; Can't find record in 'user', Error_code: 1032; handler error HA_ERR_KEY_NOT_FOUND; the event's master log master51.000001, end_log_pos 1378
+
+
+
+
+
+
+	1.5 验证主从同步配置（在客户端连接主服务器访问数据） 15分钟到 14：45
+	 	1.5.1 在主服务器添加授权用户给客户端连接使用
+]# mysql  -uroot  -p123456
+mysql> create database db1;
+mysql> grant all on  db1.*  to  admin@"%" identified by "123qqq...A";
+mysql> grant select,insert,update,delete on db5.* to admin@"%";
+mysql> 
+		1.5.2 客户端使用授权用户连接主服务器，访问数据
+[root@host50 ~]# mysql -h192.168.4.51 -uadmin -p123qqq...A
+mysql> show grants;
+mysql> delete from  db5.b where name="lucy";
+mysql> show master status;
+mysql> update db5.b set name="jerry" where name="bob";
+mysql> create table db1.a(id int);
+mysql> insert into db1.a values(100);
+
+		1.5.3 在从服务器主机查看数据（能够看到和主服务器同样的数据）
+[root@host52 ~]# mysql -uroot -p123qqq...A
+mysql> show slave status\G;
+Last_SQL_Error: Error 'Operation DROP USER failed for 'admin'@'192.168.4.%'' on query. Default database: ''. Query: 'drop user admin@"192.168.4.%"'
+  Replicate_Ignore_Server_Ids:	 
+mysql> stop slave;
+mysql> grant all on *.* to  admin@"192.168.4.%" identified by "123qqq...A";
+mysql> start slave;
+mysql> show slave status\G;
+
+mysql> select  * from db5.b;
+mysql> select  * from db5.b;
+mysql> select  * from db1.a;
+				休息到 15：10 
+
+2 主从同步模式
+	2.1 主从同步结构模式？ 一主一从 、 一主多从 、主从从 、主主结构
+	2.2 配置一主多从结构 (把数据库服务器53 也配置51 的从服务器)15分钟到15：50
+[root@host53 ~]# vim /etc/my.cnf		
+[mysqld]
+server_id=53
+[root@host53 ~]# systemctl  restart mysqld
+
+[root@host51 ~]# mysqldump -uroot -p123456 --master-data -B db1 db5  >  /root/twodb.sql
+[root@host51 ~]# scp /root/twodb.sql  root@192.168.4.53:/root/
+
+[root@host53 ~]# mysql -uroot -p123qqq...A  < /root/twodb.sql
+[root@host53 ~]# mysql -uroot -p123qqq...A  -e  "show databases"
+
+[root@host53 ~]# grep master51 /root/twodb.sql 
+CHANGE MASTER TO MASTER_LOG_FILE='master51.000001', MASTER_LOG_POS=2351;
+
+[root@host53 ~]# mysql -uroot -p123qqq...A 
+mysql> change master to  master_host="192.168.4.51" , master_user="repluser" ,
+    -> master_password="123qqq...A" , master_log_file="master51.000001", 
+    -> master_log_pos=2351 ;
+mysql> start slave;
+mysql> show slave status\G;
+		Master_Host: 192.168.4.51
+		Slave_IO_Running: Yes
+		Slave_SQL_Running: Yes
+
+	验证一主多从的配置
+		客户端连接主服务器51 访问数据
+[root@host50 ~]# mysql -h192.168.4.51 -uadmin -p123qqq...A
+mysql> insert into db1.a values(888);
+mysql> insert into db1.a values(888);
+mysql> insert into db5.b values("alice");
+mysql> insert into db5.b values("alice");
+
+		在从服务器53 本机可以查看到同样的数据
+[root@host53 ~]# mysql -uroot -p123qqq...A  -e "select  * from db1.a where id=888"
+[root@host53 ~]# mysql -uroot -p123qqq...A  -e 'select  * from db5.b where name="alice"'
+		休息到 16：15
+
+
+		配置主从从结构
+			配置主服务器53
+			  ]#  vim /etc/my.cnf
+				[mysqld]
+				 server_id=53
+				 log-bin=master53
+			  :wq
+
+			  ]# systemctl  restart mysqld
+
+			  ]# mysql -uroot -p123qqq...A
+			  mysql> grant  replication  slave  on *.* to  repluser@"%" identified by "123qqq...A";
+			  mysql> show master status;
+			配置从服务器54  10分钟到 16：54
+				[root@host54~]# vim /etc/my.cnf
+					[mysqld]
+					server_id=54
+					log-bin=master54
+					log_slave_updates
+				:wq
+				[root@host54 ~]# systemctl  restart mysqld
+
+				[root@host54~]# mysql -uroot -p123456
+mysql> grant replication slave on *.*  to repluser@"%" identified by "123qqq...A";
+mysql> show master status;
++-----------------+----------+--------------+------------------+-------------------+
+| File            | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-----------------+----------+--------------+------------------+-------------------+
+| master54.000001 |      441 |              |                  |                   |
++-----------------+----------+--------------+------------------+-------------------+
+mysql>
+mysql> show slave status;
+Empty set (0.00 sec)
+mysql> change master to master_host="192.168.4.53" , master_user="repluser" ,
+    -> master_password="123qqq...A" , master_log_file="master53.000001",
+    -> master_log_pos=441;
+mysql> start slave;
+
+mysql> show slave status\G;
+		Master_Host: 192.168.4.53
+		Slave_IO_Running: Yes
+            	Slave_SQL_Running: Yes
+
+		配置从服务器55        时间8分钟到 17：10   休息到 17：25 
+		  ]# vim /etc/my.cnf
+			[mysqld]
+			server_id=55
+		  :wq
+		]# systemctl  restart mysqld
+
+		]# mysql -uroot -p123456
+		mysql> show slave status;
+			Empty set (0.00 sec)
+
+mysql> change master to  master_host="192.168.4.54", master_user="repluser",
+    -> master_password="123qqq...A" ,  master_log_file="master54.000001",
+    -> master_log_pos=441;
+mysql> start slave;
+mysql> show slave status\G;
+		Master_Host: 192.168.4.54
+		Slave_IO_Running: Yes
+                Slave_SQL_Running: Yes
+		测试主从从结构配置
+			 1 在服务添加访问数据的授权
+			  53]# mysql -uroot -p123qqq...A
+			       mysql> grant all on  db1.* to yaya66@"%" identified by "123qqq...A";
+
+			2 客户端连接主服务器53 ，访问数据
+			  50]# mysql -h192.168.4.53 -uyaya66  -p123qqq...A
+			       mysql>  show  grants;
+			       mysql> show databases;
+			       mysql> create database db1;
+			       mysql> create table db1.a(id int);
+			mysql> insert into db1.a values(100);
+
+			3 从服务器本机查看数据 (可以看到和主服务器一样的数据)
+			   54]# mysql -uroot -p123qqq...A
+			   mysql> select  * from db1.a;
+
+			   55]# mysql -uroot -p123qqq...A
+			   mysql> select  * from db1.a;
+
+		配置主主结构 
+			要求：把数据库服务器56 和 57 配置为mysql主主结构
+			步骤如下：
+			1 创建2台新的虚拟机 并配置ip 地址
+			2 分别在2台数据库服务器安装软件、启动服务 、管理初始密码登陆
+			3 配置数据库服务器56（主服务器配置）
+			4 配置数据库服务器57（主服务器配置）	
+			5 把服务器57 配置为56 的从服务器
+			6 把服务器56 配置为57 的从服务器
+			7 分别在2台服务器查看slave状态信息
+
+	主从同步复制模式
+			1 类型：
+				异步复制模式（默认）
+				全同步复制模式
+				半同步复制模式
+			2 把主从同步修改为半同步复制模式
+			

@@ -1,0 +1,37 @@
+第8天
+1. 什么是分库分表
+     将存放在一个数据库(主机) 中的数据,按照特定方式进行拆分,分散存放到多个数据库(主机)中,以达到分散单台设备负载的效果.
+
+2. 什么是水平分割? 什么是垂直分割
+   水平分割 : 横向切分 按照表中指定字段的分片规则,将表记录按行切分,分散储存到多个数据库中.
+   垂直分割 : 纵向切分 将单个数据库的多个表按业务类型分类,分散存储到不同的数据库.
+
+3. mycat分片规则写出4种
+	1.枚举法 sharding-by-intfile 
+	2.固定分片 rule1
+	3.范围约定 auto-sharding-long
+	4.求模法  mod-long
+	5.日期列分区法 sharding-by-date
+	6.通配取模 sharding-by-pattern
+	7.ASCII码求模通配 sharding-by-prefixpattern
+	8.编程指定 sharding-by-substring
+	9.字符串拆分hash解析 sharding-by-stringhash
+	10.一致性 hash sharding-by-murmur
+4. mycat分片工作原理
+当mycat收到SQL命令时
+	1.解析SQL命令涉及到的表
+	2.然后看对表的配置,如果有分片规则,则获取SQL命令里分片字段的值,并匹配分片函数,获得分片列表
+	3.然后将SQL命令发往对应的分片服务器去执行
+	4.最后收集和处理所有分片结果数据,并返回到客户端
+
+5. server.xml, schema.xml, rule.xml三个配置文件作用是什么?
+server.xml 设置客户端连接用户及逻辑库
+schema.xml 配置表使用的分片规则 及存储数据的数据库服务器
+rule.xml 分片规则文件
+
+
+
+
+
+
+

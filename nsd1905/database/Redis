@@ -1,0 +1,238 @@
++++++++NoSQL_DAY01
+1 搭建Redis数据库服务器
+	1.1 相关概念？
+	1.2 Redis软件介绍？
+		也称远程字典服务器
+		是一款高性能的分布式内存数据库
+		支持数据持久化 (定期把内存里数据存储到硬盘)
+		支持多种数据类型
+	1.3 部署Redis
+		1 安装软件
+			源码安装  yum -y install gcc
+			tar -xf          cd        make && make install
+		2 初始化配置
+			./utils/install_server.sh
+		3 查看服务信息
+
+		4 服务管理 （停止服务 启动服务 查看服务状态）
+			/etc/init.d/redis    stop      //停止服务
+			/etc/init.d/redis    start      //启动服务
+			ps -C  redis-server             //查看进程
+			netstat(ss)  -nutlp  |  grep  redis-server   //查看端口
+			/etc/init.d/redis   status     //查看状态
+		5 连接服务，存取数据，断开连接
+			redis-cli  //默认连接127.0.0.1地址的 6379端口
+			127.0.0.1:6379> ping
+PONG            //PONG说明服务正常
+		6 常用命令
+			set    key名  key值               //存储1个key值
+			mset    名值   名值               //存储多个key值
+			get      key名                       //读取key值
+			mget                                   //读取多个key值
+			select    数据库0-15            //切换库16个
+			keys   *                                //显示所有key名
+			keys   a                                //显示指定key名
+			ttl  key名                             //查看key生存时间
+			type                                    //查看key类型
+			exists                                  //测试key名是否存在
+			move  名    库                     //移动key到指定库
+			del                                      //删除指定的key
+			expire  名   数字                 //设置key有效时间
+			flushall				  //删除内存里所有key
+			flushdb				  //删除所在库的所有key
+			save 				  //保存所有key到硬盘
+			shutdown			 //停止服务
+
+	1.4 配置文件 /etc/redis/6379.conf
+
+	1.5 修改50主机redis服务的Ip地址 端口号   设置连接密码
+		]# vim /etc/redis/6379.conf 
+          		requirepass 123456
+          		bind 192.168.4.50
+          		port 6350
+		:wq
+		]# /etc/init.d/redis_6379 stop 
+		]# /etc/init.d/redis_6379 start
+	    连接服务	
+		]# redis-cli  -h192.168.4.50 -p6350    //连接服务
+192.168.4.50:6350> ping
+(error) NOAUTH Authentication required.
+192.168.4.50:6350> auth 123456   //输入密码
+OK
+192.168.4.50:6350> ping
+PONG
+]# redis-cli -h 192.168.4.50 -p 6350 -a 123456   //连接时加密码
+]# redis-cli -h 192.168.4.64 -p 6364 -a 123456 shutdown //停止服务
+
+		修改脚本 ，使其也可以使用脚本停止服务
+		[root@host50 ~]# vim /etc/init.d/redis_6379 
+[root@host50 ~]# sed -n '43p' /etc/init.d/redis_6379 
+            $CLIEXEC -h 192.168.4.50 -p 6350 -a 123456 shutdown
+[root@host50 ~]# 
+[root@host50 ~]# /etc/init.d/redis_6379  stop
+Stopping ...
+Redis stopped
+[root@host50 ~]# redis-cli -h 192.168.4.50  -p 6350  -a  123456 
+Could not connect to Redis at 192.168.4.50:6350: Connection refused
+Could not connect to Redis at 192.168.4.50:6350: Connection refused
+not connected> exit
+[root@host50 ~]# /etc/init.d/redis_6379  start
+Starting Redis server...
+[root@host50 ~]# redis-cli -h 192.168.4.50  -p 6350  -a  123456 
+192.168.4.50:6350> ping
+PONG
+192.168.4.50:6350> 
+
+
+
+2 LNMP+Redis
+	 2.1 在51主机部署LNMP环境
+		1 安装源码nginx
+		2 安装php-fpm服务 ]# yum -y  install  php-fpm
+		3 安装php    ]# yum -y install php
+
+ 休息到 15：25 
+		4 修改nginx的配置文件并启动服务
+		5 启动fpm服务
+[root@host51 nginx-1.12.2]# vim +65  /usr/local/nginx/conf/nginx.conf
+[root@host51 nginx-1.12.2]# /usr/local/nginx/sbin/nginx  -t
+nginx: the configuration file /usr/local/nginx/conf/nginx.conf syntax is ok
+nginx: configuration file /usr/local/nginx/conf/nginx.conf test is successful
+[root@host51 nginx-1.12.2]# 
+[root@host51 nginx-1.12.2]# sed -n '65,70p'  /usr/local/nginx/conf/nginx.conf
+        location ~ \.php$ {
+           root           html;
+           fastcgi_pass   127.0.0.1:9000;
+           fastcgi_index  index.php;
+           include        fastcgi.conf;
+        }
+[root@host51 nginx-1.12.2]# 
+[root@host51 nginx-1.12.2]# /usr/local/nginx/sbin/nginx 
+[root@host51 nginx-1.12.2]# netstat -utnlp  | grep  :80
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      6383/nginx: master  
+[root@host51 nginx-1.12.2]# systemctl  start php-fpm
+[root@host51 nginx-1.12.2]# systemctl  enable php-fpm
+Created symlink from /etc/systemd/system/multi-user.target.wants/php-fpm.service to /usr/lib/systemd/system/php-fpm.service.
+[root@host51 nginx-1.12.2]# 
+[root@host51 nginx-1.12.2]# netstat -utnlp  | grep  :9000
+tcp        0      0 127.0.0.1:9000          0.0.0.0:*               LISTEN      6413/php-fpm: maste 
+[root@host51 nginx-1.12.2]# 
+
+		6 测试配置
+			[root@host51 nginx-1.12.2]# vim /usr/local/nginx/html/test.php
+[root@host51 nginx-1.12.2]# cat /usr/local/nginx/html/test.php
+<?php
+$i=99 ;
+echo $i ;
+?>
+[root@host51 nginx-1.12.2]# curl http://127.0.0.1/test.php
+99
+
+		休息到 16：05
+		2.1 配置php支持redis
+]# scp /linux-soft/03/redis/lnmp/php-redis-2.2.4.tar.gz  root@192.168.4.51:/root/
+
+			2.1.1 安装提供连接redis服务模块的软件php-redis-2.2.4.tar.gz
+				
+  403  yum -y  install php-devel  autoconf  automake
+  404  rpm -q automake
+  405  rpm -q autoconf
+  406  rpm -q php-devel
+  
+  407  tar -zxvf php-redis-2.2.4.tar.gz 
+  409  cd phpredis-2.2.4/
+  411  which phpize 
+  412  rpm -qf /usr/bin/phpize 
+  
+  414  phpize 
+  416  ls /usr/bin/php-config
+  417  vim /usr/bin/php-config
+  418   ./configure  --with-php-config=/usr/bin/php-config
+  420  make 
+  421  make install
+
+  422  ls /usr/lib64/php/modules/
+  423  php -m  | grep -i redis
+		2.3 修改php程序的主配置文件，加载redis模块
+			
+]# vim /etc/php.ini			 
+728 extension_dir = "/usr/lib64/php/modules/"
+730 extension = "redis.so"
+:wq
+]# systemctl  stop php-fpm
+]# systemctl  start php-fpm
+]# php -m | grep -i redis
+redis
+
+		2.4 测试配置
+]# scp /linux-soft/03/redis/lnmp/linkredis.php  root@192.168.4.51:/root/
+
+			连接50服务器存储数据脚本
+[root@host51 ~]# cp /root/linkredis.php /usr/local/nginx/html/set.php
+]# vim /usr/local/nginx/html/set.php
+<?php
+$redis = new redis();
+$redis->connect('192.168.4.50',6350);
+$redis->auth("123456");
+$redis->set('linux','redhat');
+?>
+:wq
+
+[root@host51 ~]# curl http://127.0.0.1/set.php
+
+[root@host50 ~]# redis-cli -h 192.168.4.50  -p 6350  -a  123456
+192.168.4.50:6350> keys *
+1) "age"
+2) "sex"
+3) "x"
+4) "name"
+5) "linux"
+6) "y"
+192.168.4.50:6350> get linux
+"redhat"
+
+			连接50服务器获取数据的脚本
+[root@host51 ~]# cp /root/linkredis.php /usr/local/nginx/html/get.php
+[root@host51 ~]# vim /usr/local/nginx/html/get.php
+<?php
+$redis = new redis();
+$redis->connect('192.168.4.50',6350);
+$redis->auth("123456");
+echo $redis->get('linux');
+?>
+:wq
+
+[root@host51 ~]# curl  http://127.0.0.1/get.php
+redhat
+		
+			连接50服务器存/取数据的脚本
+[root@host51 ~]# cp /root/linkredis.php /usr/local/nginx/html/sg.php
+[root@host51 ~]# vim /usr/local/nginx/html/sg.php
+<?php
+$redis = new redis();
+$redis->connect('192.168.4.50',6350);
+$redis->auth("123456");
+$redis->set('database','mysql');
+echo $redis->get('database');
+?>
+:wq
+
+[root@host51 ~]# curl http://127.0.0.1/sg.php
+mysql
+
+192.168.4.50:6350> keys *
+1) "age"
+2) "sex"
+3) "x"
+4) "name"
+5) "linux"
+6) "database"
+7) "y"
+192.168.4.50:6350> get database
+"mysql"
+192.168.4.50:6350> 
+ 
+			休息10分钟 到 17：25 
+		时间5分钟 到16：40							
+
+

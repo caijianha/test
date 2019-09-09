@@ -1,0 +1,157 @@
+
+	云计算简介
+		IaaS : 即基础设施即服务 通常分为 公有云 私有云 混合云 三种  
+		PaaS : 平台即服务
+		SaaS : 软件即服务
+	
+	openstack 简介
+		是一套IaaS的解决方案
+		分为七大组件
+			Horizon : 用于管理openstack各种服务的 基于web的管理端口 通过图形界面实现创建用户 管理网路 启动实例等操作
+			Keystone :为其他服务提供认证和授权的集中身份管理服务 支持多种身份认证模式
+			Nova : 在节点上用于管理虚拟机  是一个分布式服务 与Keystone交互实现认证 与Glance交互实现镜像管理
+			Glance : 管理虚拟机镜像
+			Swift : 提供管理存储节点的Swift相关，同时提供Swift在Horizon中的管理面板
+			Quantum(Neutron) : 负责openstack中的网络和地址管理
+			Cinder : 为虚拟机管理储存卷的服务
+
+本案例要求配置基本环境：
+配置三台虚拟机
+openstack : 2CPU，7G 内存，50G 硬盘
+nova01 nova02 : 2CPU，4.5G 内存，100G 硬盘
+配置静态IP ifcfg-eth0
+openstack : 192.168.1.10
+nova: 192.168.1.11, 192.168.1.12
+配置主机名 /etc/hosts，能够相互 ping 通
+配置 dns 服务器 /etc/resolv.conf
+
+	1.配置DNS 
+		临时的 vim /etc/hosts
+		要求相互ping主机名可以通
+	2.配置NTP时间服务器
+		vim /etc/chrony.conf
+			server 192.168.1.254 iburst
+		systemctl restart chronyd
+		chronyc sources -v
+			 ^* gateway 
+		三台都要配
+
+		3.配置yum仓库
+openstack
+		mkdir /var/ftp/extras
+		mkdir /var/ftp/openstack
+  		mount /linux-soft/04/openstack/RHEL7OSP-10.iso /var/ftp/openstack/
+		ls openstack/
+		mount /linux-soft/04/openstack/RHEL7-extras.iso /var/ftp/extras/
+三台都要配	
+		vim /etc/yum.repos.d/local.repo
+			[local_repo]
+			name=CentOS-$releasever - Base
+			baseurl="ftp://192.168.1.254/centos-1804"
+			enabled=1
+			gpgcheck=1
+
+			[extras]
+			name=RHEL7-extras.iso
+			baseurl="ftp://192.168.1.254/extras"
+			enabled=1
+			gpgcheck=0
+
+			[openstack]
+			name=rhel-7-server-openstack-10-rpms
+			baseurl="ftp://192.168.1.254/openstack/rhel-7-server-openstack-10-rpms"
+			enabled=1
+			gpgcheck=0
+
+			[openstack1]
+			name=rhel-7-server-openstack-10-devtools-rpms
+			baseurl="ftp://192.168.1.254/openstack/rhel-7-server-openstack-10-devtools-rpms"
+			enabled=1
+			gpgcheck=0
+	
+		scp /etc/hosts root@192.168.1.12:/etc/
+		yum repolist
+			repolist : 10670
+
+		rpm -qa | grep firewalld*
+		rpm -qa | grep networkmanager*   //如果安装了就把这两个软件卸载了
+	
+		4.安装额外软件包(都安)
+		yum -y install qemu-kvm libvirt-client libvirt-daemon libvirt-daemon-driver-qemu.x86_64 python-setuptools.noarch
+		systemctl start libvirtd.service   //nova*上启动
+
+		5.检查基础环境(都检查)
+		(1) 是否卸载firewalld和networkmanager
+		(2) 检查配置主机网路参数(静态IP)
+		(3) 主机名必须能够相互ping通
+		(4) 检查配置主机yum源 (4个,10670)
+		(5) 依赖包是否安装
+		(6) 检查NTP服务器是否可用
+		(7) 检查/etc/resolv.conf 不能有 search 开头的行
+			cat /etc/resolv.conf | grep search   //没有输出为正确 
+
+		6.安装Openstack (仅在openstack上安装)
+		yum -y install openstack-packstack
+		packstack --gen-answer-file answer.ini    //创建应答文件
+
+		7.修改应答文件 (仅在openstack上)
+		vim answer.ini
+			42 CONFIG_SWIFT_INSTALL=n
+			45 CONFIG_CEILOMETER_INSTALL=n				//计费相关模块
+			49 CONFIG_AODH_INSTALL=n					//计费相关模块
+			53 CONFIG_GNOCCHI_INSTALL=n				//计费相关模块
+			75 CONFIG_NTP_SERVERS=192.168.1.254			//时间服务器的地址
+			98 CONFIG_COMPUTE_HOSTS=192.168.1.11			//本机IP
+			102 CONFIG_NETWORK_HOSTS=192.168.1.10,192.168.1.11  //集群IP
+			330 CONFIG_KEYSTONE_ADMIN_USERNAME=admin		//设置管理员用户
+			333 CONFIG KEYSTONE_ADMIN_PW=a				//设置管理员用户密码
+			840 CONFIG_NEUTRON_ML2_TYPE_DRIVERS=flat,vxlan    //驱动类型
+			910 CONFIG_NEUTRON_OVS_BRIDGE_MAPPINGS=physnet1:br-ex  //物理网桥的名称
+					
+			921 CONFIG_NEUTRON_OVS_BRIDGE_IFACES=br-ex:eth0  
+				//br-ex桥的名称与eth0连接，管理eth0,网桥与哪个物理网卡连接
+			1179 CONFIG_PROVISION_DEMO=n   			//DEMO是否测试
+		
+		packstack --answer-file=answer.ini     			//开始安装 大概30分钟
+			**** Installation completed successfully ******        //出现这个为成功
+
+		8.网路配置 
+		(1) 查看外部OVS网桥 : br-ex
+		cat /etc/sysconfig/network-scripts/ifcfg-br-ex
+
+		(2) 查看外部OVS网桥端口 : eth0
+		cat /etc/sysconfig/network-scripts/ifcfg-eth0
+
+		(3) 验证OVS配置 
+		ovs-vsctl show
+
+		9.Horizon 配置 (仅在openstack上)
+		vim /etc/httpd/conf.d/15-horizon_vhost.conf
+			WSGIApplicationGroup %{GLOBAL}        //倒数第二行
+
+		systemctl restart httpd.service
+		浏览器访问 192.168.1.10登录管理
+	
+		10.命令行接口 (仅在openstack上)
+		source ~/keystonerc_admin		//初始化环境变量
+		env | grep OS
+		openstack					//进入
+		user list					//不初始化环境变量这里会报错
+		openstack help  				//使用帮助
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

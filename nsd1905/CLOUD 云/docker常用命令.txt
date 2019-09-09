@@ -1,0 +1,108 @@
+
+
+
+watch -n 时间 '命令'   每隔多长时间执行一次命令
+
+
++++++++++++++Docker容器+++++++++
+
+什么是容器
+容器的核心有以下几个内核技术组成
+	Cgroups      资源管理
+	NameSpace    进程隔离
+	SELinux安全
+
+Docker优点
+	相比于传统的虚拟化技术,容器更加简洁高效
+	传统虚拟机需要给每个VM安装操作系统
+	容器使用的共享公共库和程序
+缺点
+	容器的隔离性没有虚拟化强
+	共用Linux内核,安全性有先天缺陷
+	SELinux难以驾驭
+	监控容器和容器排除是挑战
+
+安装Docker
+	1.配置 yum  源
+		mount /linux-soft/04/openstack/RHEL7-extras.iso /var/ftp/extras/
+/etc/yum.repos.d/local.repo 
+
+name=RHEL7-extras.iso
+baseurl="ftp://192.168.1.254/extras"
+enabled=1
+gpgcheck=0
+
+	yum -y install docker
+	systemctl restart docker
+	systemctl enable docker
+	ifconfig
+
+什么是镜像
+	在Docker中容器是基于镜像启动的
+	镜像是启动容器的核心
+	镜像采用\分层设计
+	使用快照的COW技术,确保底层数据不丢失
+	
+镜像操作
+	docker help  命令选项              查看选项的用法
+	man docker-命令选项                 详细查看
+下载镜像(从镜像仓库中下载)
+	docker pull  docker.io/busybox
+
+上传镜像
+	dockker push  docker.io/busybox
+
+导入 导出镜像
+	docker save docker.io/busybox -o busybox.tar	导出
+	docker load -i busybox.tar				导入
+启动镜像
+	docker run -it docker.io/busybox /bin/bash
+
+常用命令
+	docker images		//查看镜像列表
+	docker history		//查看镜像制作历史
+	docker inspect		//查看镜像底层信息
+	docker pull			//下载镜像
+	docker push			//上传镜像
+	docker rmi			//删除本地镜像
+	docker save			//镜像另存为tar包
+	docker load			//使用tar包导入镜像
+	docker search		//搜索镜像
+	docker tag			//修改镜像名称和标签
+	docker run			//运行容器
+	docker ps			//查看容器列表
+	docker ps -a		//查看所有容器列表
+	docker ps -aq		//仅显示容器ID
+	docker stop			//关闭容器
+	docker start		//启动容器
+	docker restart		//重启容器
+	docker attach | exec	//进入容器  大部分情况都是用exet  attach进入退出的话会关闭容器
+		[root@docker1 ~]# docker exec -it 79dafe707e8c5b /bin/bash
+	docker top			//查看容器进程列表
+	docker rm			//删除容器
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

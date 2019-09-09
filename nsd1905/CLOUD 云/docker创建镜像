@@ -1,0 +1,205 @@
+自定义镜像
+	docker commit
+	使用镜像启动容器,在该容器基础上修改
+	另存为一个新镜像
+		[root@docker1 ~]# docker run -it docker.io/centos
+		[root@79dafe707e8c /]#yum -y install net-tools iproute psmisc vim-enhanced
+		[root@docker1 ~]# docker commit 79dafe70 docker.io/myos:haha   将该容器另存为一个新镜像
+
+使用Dockerfile文件创建一个新的镜像文件
+	Dockerfile语法格式：
+	– FROM:基础镜像
+	– MAINTAINER:镜像创建者信息(说明)
+	– EXPOSE:开放的端口
+	– ENV:设置环境变量
+	– ADD:复制文件到镜像
+	– RUN:制作镜像时执行的命令,可以有多个
+	– WORKDIR:定义容器默认工作目录
+	– CMD:容器启动时执行的命令,仅可以有一条CM
+
+		[root@docker1 ~]# cat Dockerfile 
+			FROM	docker.io/centos:latest 
+			RUN	rm -rf /etc/yum.repos.d/*
+			ADD	local.repo /etc/yum.repos.d/local.repo
+			RUN	yum -y install net-tools iproute psmisc
+	
+		[root@docker1 ~]# cp /etc/yum.repos.d/local.repo /root/
+		[root@docker1 ~]# docker build -t docker.io/haha:ll .
+
+创建一个sshd的镜像文件
+	yum provides sshd
+	yum -y install openssh-server
+	[root@docker1 ~]# rpm -ql sshd | grep system
+	vim /usr/lib/systemd/system/sshd.service 
+		EnvironmentFile=/etc/sysconfig/sshd
+		ExecStart=/usr/sbin/sshd $OPTIONS -D
+		$OPTIONS  是个变量  先去/etc/sysconfig/httpd里面看一下有没有  然后echo一下 空的就不用理会
+
+	/usr/sbin/sshd $OPTIONS -D    会报错确实秘钥
+	sshd-keygen				会报错确实一个包
+	yum -y install
+	yum provides functions        报错会提示少这个命令
+	yum -y install initscripts
+
+	[root@docker1 ~]# cat Dockerfile 
+		FROM	docker.io/haha:ll
+		RUN	yum -y install openssh-server initscripts
+		RUN   sshd-keygen
+		RUN   echo "a" | passwd --stdin root
+		ENV	EnvironmentFile=/etc/sysconfig/sshd
+		EXPOSE 22
+		CMD	["/usr/sbin/sshd","-D"]
+
+	docker build -t haha:sshd .    //重新定义一个镜像并命名haha:sshd .代表的是当前文件夹下的Dockerfile文件
+	docker run -itd haha:sshd	//建容器进行测试  -d有端口时加上
+	docker inspect 容器ID		//查看容器的信息(IP等)
+
+创建一个httpd的镜像文件
+	[root@docker1 ~]# rpm -ql httpd | grep system
+	vim /usr/lib/systemd/system/httpd.service 
+		EnvironmentFile=/etc/sysconfig/httpd
+		ExecStart=/usr/sbin/httpd $OPTIONS -DFOREGROUND
+		$OPTIONS  是个变量  先去/etc/sysconfig/httpd里面看一下有没有  然后echo一下 空的就不用理会
+	
+	[root@docker1 ~]# cat Dockerfile 
+		FROM	docker.io/haha:sshd
+		RUN	yum -y install httpd
+		WORKDIR /var/www/html/
+		ENV	EnvironmentFile=/etc/sysconfig/httpd
+		ADD   index.html  index.html			//把当前文件夹下的文件拷到容器里
+		EXPOSE 80
+		EXPOSE 443
+		CMD	["/etc/init.d/run.sh"]
+
+	cat /etc/init.d/run.sh
+		#!/bin/bash
+		/usr/sbin/sshd -d  &
+		/usr/sbin/httpd  -DFOREGROUND
+	
+	docker build -t haha:httpd .
+创建一个镜像仓库
+	yum -y install docker-distribution.x86_64
+	systemctl start docker-distribution.service
+	systemctl enable docker-distribution.service
+	curl http://192.168.1.30:5000/v2/_catalog		//访问 查看仓库中的镜像
+	ls /etc/docker-distribution/registry/config.yml	//仓库配置文件
+	ls /var/lib/registry/					//数据存放路径 存放镜像
+
+客户端给仓库上传镜像
+	vim /etc/sysconfig/docker
+		ADD_REGISTRY='--add-registry 192.168.1.30:5000'			//仓库的IP
+		INSECURE_REGISTRY='--insecure-registry 192.168.1.30:5000'	//仓库的IP
+
+	docker stop 				停止所有容器
+	systemctl restart docker
+	docker tag docker.io/ubuntu:latest 192.168.1.30:5000/ubuntu:latest	//给镜像改个名字 主机名或IP
+	docker push 192.168.1.30:5000/ubuntu:latest 				//上传
+
+客户机配置使用新的镜像仓库,启动容器
+	vim /etc/sysconfig/docker
+		ADD_REGISTRY='--add-registry 192.168.1.30:5000'			//仓库的IP
+		INSECURE_REGISTRY='--insecure-registry 192.168.1.30:5000'	//仓库的IP
+
+	docker stop 				停止所有容器
+	systemctl restart docker	
+	docker pull 192.168.1.30:5000/ubuntu:latest 
+	curl http://192.168.1.30:5000/v2/镜像名字/tags/list		//访问 查看仓库中镜像的标签
+
+持久化存储
+	存储卷
+	docker容器不保持任何数据
+	重要数据请使用外部存储卷(数据持久化)
+	容器可以挂载真实机目录或共享存储为卷
+	
+	共享存储
+主机卷的映射
+	将真实机挂载到容器中提供持久化存储
+	目录不存在就自动创建 (容器里的目录,真实机目录要创建)
+	目录存在就直接覆盖掉 (容器里的目录,真实机目录要创建)
+	docker run -v 真实机目录:容器目录 -it docker.io/centos:latest
+
+共享存储案例
+创建NFS共享，能映射到容器里：
+
+192.168.1.30
+	yum -y install nfs-utils
+	vim /etc/exports
+		/var/webroot    *(rw,no_root_squash)
+
+	mkdir   /var/webroot
+	chmod 777 /var/webroot
+	systemctl start nfs
+
+docker1
+	yum -y install nfs-utils
+	mkdir /mnt/qq
+	mount -t nfs 192.168.1.30:/var/webroot /mnt/qq/
+	docker run -itd -v /mnt/qq:/usr/share/nginx/html  docker.io/nginx:latest
+
+docker2
+	yum -y install nfs-utils
+	mkdir /mnt/qq
+	mount -t nfs 192.168.1.30:/var/webroot /mnt/qq/
+	docker run -itd -v /mnt/qq:/var/www/html  docker.io/httpd:latest
+
+docker;网络拓补
+查看docker慕容网络模型
+	docker netword list
+	ip a s docker0
+	brctl show docker0   //启动容器会绑定该网络
+使用docker创建网桥
+	docker network create --subnet=10.10.10.0/24 docker1
+	docker netword list
+	ip a s docker0
+	brctl show docker0   //启动容器会绑定该网络
+
+使用自定义网络
+	docker run --network=docker1 -itd docker.io/haha
+案例
+启动4台容器
+要求： 容器1 与 容器2 能够互通
+容器3 与 容器4 能够互通
+容器（12） 与 容器（34） 不能互通
+容器1 docker run  -itd docker.io/haha
+容器2 docker run  -itd docker.io/haha
+容器3 docker run --network=docker1 -itd docker.io/haha
+容器4 docker run --network=docker1 -itd docker.io/haha
+
+客户端访问容器内的资源
+	默认容器可以访问外网
+	但外部网络不可以访问容器内的资源
+	容器的特征是可以吧宿主机变成对应的服务
+	--我们可以使用 -p 参数把容器端口和宿主机端口绑定
+		-p 宿主机端口:容器端口
+例
+	docker run -itd -p 80:80 docker.io/haha:httpd      
+	然后浏览器访问这台真机的IP可以显示容器里http的内容
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

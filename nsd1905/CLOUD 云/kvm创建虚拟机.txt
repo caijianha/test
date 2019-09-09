@@ -1,0 +1,132 @@
+
+	KVM简介
+		环境介绍
+		base-vm 名称1,2,3         		//执行脚步克隆虚拟机
+
+		安装虚拟化服务器平台必备软件
+		qemu-kvm				//为kvm提供底层仿真支持
+		libvirtd-daemon          	//守护进程,管理虚拟机
+		libvirt-client			//用户端软件,提供客户端管理命令
+		libvirt-daemon-driver-qemu	//libvirtd 连接qemu的驱动
+		可选功能
+		virt-install			//系统安装工具
+		virt-manager			//图形管理工具
+		virt-v2v				//虚拟机迁移工具
+		virt-p2v				//物理机迁移工具
+
+	KVM虚拟机的组成
+		内核虚拟化模块 (KVM)
+		系统设备仿真 (QEMU)
+		虚拟机管理程序 (LIBVIRT)
+		一个 XML 文件 (虚拟机配置声明文件)    //位置 /etc/libvirt/qemu/
+		一个磁盘镜像文件 (虚拟机的硬盘)        //位置 /var/lib/libvirt/images/
+
+	virsh命令工具介绍
+	virsh 虚拟机管理
+		liat [--all] 列出虚拟机
+		start | shutdown | reboot 	虚拟机启动,停止,重启		
+		destroy 			 	强制停止虚拟机
+		define | undefine 	 	根据 xml 文件 创建/删除 虚拟机
+		console				连接虚拟机	
+		edit					修改虚拟机的xml配置
+		autostart				设置虚拟机自启动
+		domiflist				查看虚拟机网卡信息
+		domblklist				查看虚拟机硬盘信息
+
+		net-list [--all]			列出虚拟网络
+		net-start				启动虚拟交换机
+		net-destroy				强制停止虚拟交换机
+		net-define				根据 xml 文件 创建许你网络
+		net-undefine			删除一个虚拟网络设备
+		net-edit				修改虚拟交换机的配置
+		net-autostart			设置虚拟交换机自启动
+
+	虚拟机的磁盘镜像文件格式 默认为：ＱＣＯＷ２
+
+	qemu-img命令　
+		qemu-img　是虚拟机的磁盘管理命令，支持很多的磁盘格式
+		命令格式　：　qemu-img 命令　参数　块文件名称　大小
+			create			创建一个磁盘
+			convert			转换磁盘格式
+			info				查看磁盘信息
+			resize			扩容磁盘空间	
+		创建新的镜像磁盘文件
+			qemu-img create -f 格式　磁盘路径　大小
+			qemu-img create -f qcow2 disk.img 50G
+		查询镜像盘文件的信息
+			qemu-img info  磁盘路径
+			qemu-img info disk.img
+		-b 使用后端模板文件
+			qemu-img create -b disk.img -f qcow2 disk1.img
+	
+	COW技术原理
+	Copy On Write  写时复制
+
+	批量创建克隆虚拟机的脚本
+#!/bin/bash
+. /etc/init.d/functions
+CONF_DIR=/etc/libvirt/qemu
+IMG_DIR=/var/lib/libvirt/images
+
+function createvm(){
+    if  [ -e ${IMG_DIR}/${1}.img ];then
+        echo_warning
+        echo "vm ${1}.img is exists"
+        return 1
+    else
+        qemu-img create -b ${IMG_DIR}/.node_base.qcow2 -f qcow2 ${IMG_DIR}/${1}.img 30G &>/dev/null
+        sed -e "s,node_base,${1}," ${IMG_DIR}/.node_base.xml >${CONF_DIR}/${1}.xml
+        sudo virsh define ${CONF_DIR}/${1}.xml &>/dev/null
+        echo_success
+        echo "vm ${1} create"
+    fi
+}
+
+if (( $# == 0 ));then
+   echo "$0 vm1 vm2 vm3 ... ..."
+else
+   for i in $@;do
+       createvm ${i}
+   done
+fi
+exit 0
+
+
+
+	网卡及配置文件
+		/etc/sysconfig/netword-scripts/ifcfg-eth0
+			DEVICE="eth0"				//驱动名称
+			ONBOOT="yes"				//开机启动
+			NM_CONTROLLED="no"			//不接受 NetworkManager 控制
+			TYPE="Ethernet"				//类型
+			BOOTPROTO="static"			//协议(dhcp | static | none)
+			PERSISTENT_DHCLIENT="yes"		//
+			IPADDR=192.168.1.12			//IP地址
+			NEMASK=255.255.255.0			//子网掩码
+			GATEWAY=192.168.1.254			//默认网关
+
+
+	virsh扩容磁盘
+		virsh domblklist   查看虚拟机硬盘信息
+		virsh blockresize --path  [绝对路径]  --size 50G openstack
+例：
+	opensatck主机扩容为50G
+		virsh blockresize --path /var/lib/libvirt/images/openstack.img --size 100G　openstack
+
+	首先是硬盘　　其次是分区　　　再次是文件系统
+
+	虚拟机根分区扩容
+		LANG=C		语言必须是英文
+		lsblk
+		growpart  /dev/vda 1    扩容第一个分区  1前面有空格
+		xfs_growfs    /            扩容文件系统
+		df  -h
+
+
+
+
+
+
+
+
+
